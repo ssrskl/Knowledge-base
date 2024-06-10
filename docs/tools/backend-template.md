@@ -32,6 +32,157 @@ tags: [Spring, 开发模板]
 
 ```
 
+这里放一个实战开发的所使用的依赖库，如果后续需要添加其他的依赖可以继续添加:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>3.1.6-SNAPSHOT</version>
+        <relativePath/> <!-- lookup parent from repository -->
+    </parent>
+    <groupId>com.maoyan</groupId>
+    <artifactId>DevelopmentTemplate</artifactId>
+    <version>0.0.1-SNAPSHOT</version>
+    <name>DevelopmentTemplate</name>
+    <description>DevelopmentTemplate</description>
+    <properties>
+        <java.version>17</java.version>
+    </properties>
+    <dependencies>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.mybatis.spring.boot</groupId>
+            <artifactId>mybatis-spring-boot-starter</artifactId>
+            <version>3.0.2</version>
+        </dependency>
+        <!--   SpringDoc  Swagger     -->
+        <dependency>
+            <groupId>org.springdoc</groupId>
+            <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+            <version>2.0.2</version>
+        </dependency>
+        <!--连接MySQL-->
+        <dependency>
+            <groupId>com.mysql</groupId>
+            <artifactId>mysql-connector-j</artifactId>
+            <version>8.0.32</version>
+        </dependency>
+        <!--Lombok-->
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <optional>true</optional>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.mybatis.spring.boot</groupId>
+            <artifactId>mybatis-spring-boot-starter-test</artifactId>
+            <version>3.0.2</version>
+            <scope>test</scope>
+        </dependency>
+        <!-- Sa-Token 权限认证，在线文档：https://sa-token.cc -->
+        <dependency>
+            <groupId>cn.dev33</groupId>
+            <artifactId>sa-token-spring-boot3-starter</artifactId>
+            <version>1.36.0</version>
+        </dependency>
+        <!--HuTool工具类-->
+        <dependency>
+            <groupId>cn.hutool</groupId>
+            <artifactId>hutool-all</artifactId>
+            <version>5.8.21</version>
+        </dependency>
+        <!--分页查询-->
+        <dependency>
+            <groupId>com.github.pagehelper</groupId>
+            <artifactId>pagehelper-spring-boot-starter</artifactId>
+            <version>1.4.7</version>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+                <configuration>
+                    <excludes>
+                        <exclude>
+                            <groupId>org.projectlombok</groupId>
+                            <artifactId>lombok</artifactId>
+                        </exclude>
+                    </excludes>
+                </configuration>
+            </plugin>
+            <!-- 代码生成器插件-->
+            <plugin>
+                <groupId>org.mybatis.generator</groupId>
+                <artifactId>mybatis-generator-maven-plugin</artifactId>
+                <version>1.4.2</version>
+                <configuration>
+                    <!--代码生成器的配置文件位置-->
+                    <configurationFile>src/main/resources/generatorConfig.xml</configurationFile>
+                    <!--允许覆盖生成的文件-->
+                    <overwrite>true</overwrite>
+                    <!--将pom中的依赖添加到生成器的类路径中-->
+                    <includeCompileDependencies>true</includeCompileDependencies>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+    <!--对Maven库的配置-->
+    <repositories>
+        <repository>
+            <id>spring-milestones</id>
+            <name>Spring Milestones</name>
+            <url>https://repo.spring.io/milestone</url>
+            <snapshots>
+                <enabled>false</enabled>
+            </snapshots>
+        </repository>
+        <repository>
+            <id>spring-snapshots</id>
+            <name>Spring Snapshots</name>
+            <url>https://repo.spring.io/snapshot</url>
+            <releases>
+                <enabled>false</enabled>
+            </releases>
+        </repository>
+    </repositories>
+    <pluginRepositories>
+        <pluginRepository>
+            <id>spring-milestones</id>
+            <name>Spring Milestones</name>
+            <url>https://repo.spring.io/milestone</url>
+            <snapshots>
+                <enabled>false</enabled>
+            </snapshots>
+        </pluginRepository>
+        <pluginRepository>
+            <id>spring-snapshots</id>
+            <name>Spring Snapshots</name>
+            <url>https://repo.spring.io/snapshot</url>
+            <releases>
+                <enabled>false</enabled>
+            </releases>
+        </pluginRepository>
+    </pluginRepositories>
+
+</project>
+```
+
 ## 配置文件
 
 创建 dev 开发版和 prop 运行版配置文件
@@ -382,3 +533,69 @@ public class Result {
 	}
 }
 ```
+
+## 代码生成器
+
+首先，我们需要下载代码生成器的 Jar 包，然后放到 resource 目录下，然后创建两个配置文件，分别是`generator.properties`和`generatorConfig.xml`都在 resource 目录下。
+
+generator.properties 内容如下:
+
+```properties
+jdbc.driverClass=com.mysql.cj.jdbc.Driver
+jdbc.connectionURL=jdbc:mysql://localhost:3306/blog?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai
+jdbc.userId=root
+jdbc.password=ar352878987
+```
+
+generatorConfig.xml 内容如下:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE generatorConfiguration
+        PUBLIC "-//mybatis.org//DTD MyBatis Generator Configuration 1.0//EN"
+        "http://mybatis.org/dtd/mybatis-generator-config_1_0.dtd">
+<generatorConfiguration>
+    <!--连接数据库-->
+    <context id="simple" targetRuntime="MyBatis3">
+        <!-- 配置MBG要连接的数据库信息 -->
+        <jdbcConnection driverClass="com.mysql.cj.jdbc.Driver"
+                        connectionURL="jdbc:mysql://110.41.50.108:3306/blog?useUnicode=true&amp;characterEncoding=utf-8&amp;serverTimezone=Asia/Shanghai"
+                        userId="root"
+                        password="ar352878987">
+            <!-- 解决mysql驱动升级到8.0后不生成指定数据库代码的问题 -->
+            <property name="nullCatalogMeansCurrent" value="true"/>
+        </jdbcConnection>
+        <!-- 用于控制实体类的生成 -->
+        <javaModelGenerator targetPackage="com.maoyan.model" targetProject="src/main/java"/>
+        <!-- 用于控制Mapper.xml文件的生成 -->
+        <sqlMapGenerator targetPackage="mapper" targetProject="src/main/resources"/>
+        <!-- 用于控制Mapper接口的生成 -->
+        <javaClientGenerator type="XMLMAPPER" targetPackage="com.maoyan.mapper"
+                             targetProject="src/main/java"/>
+        <!-- 配置需要生成的表，生成全部表tableName设为% -->
+        <table tableName="%"/>
+    </context>
+</generatorConfiguration>
+```
+
+在 pom.xml 依赖中添加代码生成器插件
+
+```xml
+ <!-- 代码生成器插件-->
+            <plugin>
+                <groupId>org.mybatis.generator</groupId>
+                <artifactId>mybatis-generator-maven-plugin</artifactId>
+                <version>1.4.2</version>
+                <configuration>
+                    <!--代码生成器的配置文件位置-->
+                    <configurationFile>src/main/resources/generatorConfig.xml</configurationFile>
+                    <!--允许覆盖生成的文件-->
+                    <overwrite>true</overwrite>
+                    <!--将pom中的依赖添加到生成器的类路径中-->
+                    <includeCompileDependencies>true</includeCompileDependencies>
+                </configuration>
+            </plugin>
+```
+然后执行插件命令即可
+
+![alt text](./imgs/code-generate-plugin.png)
