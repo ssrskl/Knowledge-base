@@ -9,6 +9,22 @@ tags:
 
 我们要封装记录的日志信息，并将其存储到数据库中，所以我们需要定义一个日志类，用于存储日志信息。
 
+:::warning
+在使用前需要先导入 AOP 依赖，见-->[导入 AOP 依赖](./aop-package/#导入依赖)
+
+由于使用了 HttpServletRequest，所以需要导入 jakarta 的依赖，关于 javax 和 jakarta 的区别见<span style={{color:'red',fontWeight:'bold'}}>TODO</span>
+
+```xml
+<!--jakarta-->
+<dependency>
+    <groupId>jakarta.servlet</groupId>
+    <artifactId>jakarta.servlet-api</artifactId>
+    <version>6.0.0</version>
+</dependency>
+```
+
+:::
+
 日志类包含的信息包括：
 
 1. 操作的描述
@@ -39,13 +55,13 @@ public class WebLog {
 然后我们需要添加一个切面类`WebLogAspect.java`，定义一个日志切面，在环绕通知中获取日志需要的信息，并应用到 controller 层中所有的 public 方法中去。
 
 ```java
-package com.macro.mall.tiny.component;
+package com.maoyan.aspect;
 
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.core.util.URLUtil;
 import cn.hutool.json.JSONUtil;
-import com.macro.mall.tiny.dto.WebLog;
-import io.swagger.annotations.ApiOperation;
+import io.swagger.v3.oas.annotations.Operation;
+import jakarta.servlet.http.HttpServletRequest;
 import org.aspectj.lang.JoinPoint;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.Signature;
@@ -61,7 +77,6 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
-import javax.servlet.http.HttpServletRequest;
 import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
 import java.util.ArrayList;
@@ -71,7 +86,7 @@ import java.util.Map;
 
 /**
  * 统一日志处理切面
- * Created by macro on 2018/4/26.
+ * Updated by maoyan on 2024/6/12.
  */
 @Aspect
 @Component
@@ -79,7 +94,7 @@ import java.util.Map;
 public class WebLogAspect {
     private static final Logger LOGGER = LoggerFactory.getLogger(WebLogAspect.class);
 
-    @Pointcut("execution(public * com.macro.mall.tiny.controller.*.*(..))")
+    @Pointcut("execution(public * com.maoyan.controller.*.*(..))")
     public void webLog() {
     }
 
@@ -103,9 +118,10 @@ public class WebLogAspect {
         Signature signature = joinPoint.getSignature();
         MethodSignature methodSignature = (MethodSignature) signature;
         Method method = methodSignature.getMethod();
-        if (method.isAnnotationPresent(ApiOperation.class)) {
-            ApiOperation apiOperation = method.getAnnotation(ApiOperation.class);
-            webLog.setDescription(apiOperation.value());
+        if (method.isAnnotationPresent(Operation.class)) {
+            Operation operation = method.getAnnotation(Operation.class);
+
+            webLog.setDescription(operation.description());
         }
         long endTime = System.currentTimeMillis();
         String urlStr = request.getRequestURL().toString();
@@ -156,3 +172,10 @@ public class WebLogAspect {
     }
 }
 ```
+
+:::tip
+这是优化后的切面类，主要优化的地方有两点
+
+1. 将 Javax 替换为了 Jakarta
+2. 适配了[openapi 的 sprindoc](./swagger/#springboot3使用swagger)
+   :::
