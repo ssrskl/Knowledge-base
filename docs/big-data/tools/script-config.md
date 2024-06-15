@@ -24,8 +24,11 @@ do
     ssh $i $1
 done
 ```
+
 ### 集群分发脚本
+
 xsync
+
 ```bash
 #!/bin/bash
 # 判断参数的个数
@@ -57,4 +60,35 @@ do
     fi
   done
 done
+```
+
+### Hadoop 启停脚本
+伪集群版：hdfs.sh
+```bash
+#!/bin/bash
+if [ $# -lt 1 ]
+then
+  echo "没有输入参数"
+  exit ;
+fi
+
+case $1 in
+"start")
+  echo "==========启动hadoop集群=========="
+  echo "启动HDFS"
+  ssh hadoop101 "/opt/module/hadoop/sbin/start-dfs.sh"
+  echo "启动YARN"
+  ssh hadoop101 "/opt/module/hadoop/sbin/start-yarn.sh"
+  ;;
+"stop")
+  echo "==========关闭hadoop集群=========="
+  echo "关闭YARN"
+  ssh hadoop101 "/opt/module/hadoop/sbin/stop-yarn.sh"
+  echo "关闭HDFS"
+  ssh hadoop101 "/opt/module/hadoop/sbin/stop-dfs.sh"
+  ;;
+*)
+  echo "输入参数错误"
+  ;;
+esac
 ```

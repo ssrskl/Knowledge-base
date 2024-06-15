@@ -27,7 +27,7 @@ tags: [Linux]
 在虚拟机中设置静态 IP，使用`root`用户.
 
 ```bash
-vim /etc/sysconfig/network-script/ifconfig-ens33
+vim /etc/sysconfig/network-scripts/ifcfg-ens33
 ```
 
 将`BOOTPROTO`修改为`static`
