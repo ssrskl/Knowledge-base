@@ -4,7 +4,7 @@ import type * as Preset from "@docusaurus/preset-classic";
 
 const config: Config = {
   title: "Code Guide",
-  tagline: "Dinosaurs are cool",
+  tagline: "猫颜知识库",
   favicon: "img/favicon.ico",
 
   // Set the production url of your site here
@@ -172,6 +172,11 @@ const config: Config = {
               sidebarId: "BigDataToolsSidebar",
               label: "大数据工具/脚本",
             },
+            {
+              type: "docSidebar",
+              sidebarId: "ProjectPracticeSidebar",
+              label: "大数据实战",
+            },
           ],
         },
         {
@@ -195,6 +200,12 @@ const config: Config = {
               label: "数组",
             },
           ],
+        },
+        {
+          type: "docSidebar",
+          sidebarId: "EssaySidebar",
+          position: "left",
+          label: "随记",
         },
         {
           href: "https://github.com/facebook/docusaurus",

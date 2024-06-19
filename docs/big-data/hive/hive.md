@@ -129,17 +129,17 @@ export HIVE_AUX_JARS_PATH=/opt/module/hive/lib
 
 ```xml
 <configuration>
-<!--连接的数据库-->
+<!--连接的数据库，我这里使用的是云服务器额数据库-->
   <property>
     <name>javax.jdo.option.ConnectionURL</name>
-    <value>jdbc:mysql://hadoop102:3306/hive</value>
+    <value>jdbc:mysql://110.41.50.108:3306/hive</value>
   </property>
 <!--使用的Mysql驱动-->
   <property>
     <name>javax.jdo.option.ConnectionDriverName</name>
-    <value>com.mysql.jdbc.Driver</value>
+    <!-- <value>com.mysql.jdbc.Driver</value> -->
 <!--高版本Mysql使用的驱动是com.mysql.cj.jdbc.Driver-->
-	<value>com.mysql.cj.jdbc.Driver</value>
+	  <value>com.mysql.cj.jdbc.Driver</value>
   </property>
   <!--访问mysql数据库的用户名-->
   <property>
@@ -149,15 +149,21 @@ export HIVE_AUX_JARS_PATH=/opt/module/hive/lib
   <!--访问mysql数据库的密码-->
   <property>
     <name>javax.jdo.option.ConnectionPassword</name>
-    <value>000000</value>
+    <value>ar352878987</value>
   </property>
   <property>
     <name>hive.server2.thrift.bind.host</name>
-    <value>hadoop103</value>
+    <value>hadoop101</value>
   </property>
+  <!-- 设置元数据库的端口地址 -->
   <property>
     <name>hive.metastore.uris</name>
-    <value>thrift://hadoop103:9083</value>
+    <value>thrift://hadoop101:9083</value>
+  </property>
+  <!-- 设置HiveServer2的端口 -->
+  <property>
+    <name>hive.server2.thrift.port</name>
+    <value>10000</value>
   </property>
   <property>
     <name>hive.metastore.event.db.notification.api.auth</name>
@@ -299,6 +305,8 @@ Hive 第一次插入数据会非常的慢。
 ```sql
 SELECT gender, COUNT(*) AS cnt FROM test GROUP BY gender;
 ```
+
+## Hive 脚本
 
 ## Hive On Spark
 

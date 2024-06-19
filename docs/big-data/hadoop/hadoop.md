@@ -86,17 +86,6 @@ ssh-copy-id hadoop104
 同样的反过来以及自己也需要配置 SSH 免密登录，例如 hadoop101 配置了 hadoop102 的免密登录，那么 hadoop102 也要配置 hadoop101 的免密登录。同时 hadoop101 也需要配置自己的免密登录。
 :::
 
-### 配置集群
-
-配置`/opt/module/hadoop/etc/hadoop/core-site.xml`
-
-````xml
-<configuration>
-    <!-- 指定HDFS中NameNode的地址 -->
-    <property>
-        <name>fs.defaultFS</name>
-:::
-
 ## Hadoop 运行模式
 
 Hadoop 有三种运行模式：
@@ -117,7 +106,7 @@ Hadoop 有三种运行模式：
 
 ```bash
 mkdir /opt/module/hadoop/testinput
-````
+```
 
 创建一个`word.txt`文本文件，输入如下的内容：
 
@@ -199,6 +188,11 @@ vim /opt/module/hadoop/etc/hadoop/hdfs-site.xml
     <name>dfs.permissions.enabled</name>
     <value>false</value>
  </property>
+ <!-- 允许网页预览 -->
+<property>
+    <name>dfs.webhdfs.enabled</name>
+    <value>true</value>
+</property>
 ```
 
 #### mapred-site.xml
@@ -220,6 +214,12 @@ vim /opt/module/hadoop/etc/hadoop/mapred-site.xml
 #### yarn-site.xml
 
 然后配置 YARN 的配置文件-->`yarn-site.xml`
+
+yarn 的 classpath 通过 hadoop 的 classpath 来获得所有的 classpath 目录，然后配置到 yarn 的配置文件中，所以首先获得 hadoop 的 classpath 目录。
+
+```bash
+hadoop classpath
+```
 
 ```bash
 vim /opt/module/hadoop/etc/hadoop/yarn-site.xml
@@ -319,3 +319,19 @@ export HDFS_SECONDARYNAMENODE_USER=root
 export YARN_RESOURCEMANAGER_USER=root
 export YARN_NODEMANAGER_USER=root
 ```
+
+### 进入到了 Safe Mode
+
+由于操作不当等问题，使得 HDFS 进入了 Safe Mode，导致无法进行任何操作。例如我启动 Hive，但是报错如下：
+
+![alt text](./imgs/hadoop-safe-mode.png)
+
+执行如下命令即可
+
+```bash
+hdfs dfsadmin -safemode leave
+```
+
+![alt text](./imgs/quit-safe-mode.png)
+
+如图即退出了安全模式
