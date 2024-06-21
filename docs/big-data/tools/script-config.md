@@ -74,6 +74,51 @@ then
   exit ;
 fi
 
+
+# 检查NameNode状态
+check_namenode() {
+    echo "正在检测 NameNode 的状态..."
+    hdfs dfsadmin -report | grep 'Name:' -A 1
+    if [ $? -eq 0 ]; then
+        echo "NameNode 正在运行中"
+    else
+        echo "NameNode 未启动"
+    fi
+}
+
+# 检查DataNode状态
+check_datanode() {
+    echo "正在检测 DataNode 的状态..."
+    hdfs dfsadmin -report | grep 'Live datanodes' -A 1
+    if [ $? -eq 0 ]; then
+        echo "DataNodes 正在运行中"
+    else
+        echo "DataNodes 未启动"
+    fi
+}
+
+# 检查YARN ResourceManager状态
+check_resourcemanager() {
+    echo "正在检测 ResourceManager 的状态..."
+    yarn node -list | grep 'Total Nodes' -A 1
+    if [ $? -eq 0 ]; then
+        echo "ResourceManager 正在运行中"
+    else
+        echo "ResourceManager 未启动"
+    fi
+}
+
+# 检查YARN NodeManager状态
+check_nodemanager() {
+    echo "正在检测 NodeManager 的状态..."
+    yarn node -list | grep 'Node-Id' -A 1
+    if [ $? -eq 0 ]; then
+        echo "NodeManagers 正在运行中"
+    else
+        echo "NodeManagers 未启动"
+    fi
+}
+
 case $1 in
 "start")
   echo "==========启动hadoop集群=========="
@@ -88,6 +133,13 @@ case $1 in
   ssh hadoop101 "/opt/module/hadoop/sbin/stop-yarn.sh"
   echo "关闭HDFS"
   ssh hadoop101 "/opt/module/hadoop/sbin/stop-dfs.sh"
+  ;;
+  "status")
+  echo "==========查看hadoop集群状态=========="
+  check_namenode
+  check_datanode
+  check_resourcemanager
+  check_nodemanager
   ;;
 *)
   echo "输入参数错误"

@@ -310,6 +310,76 @@ SELECT gender, COUNT(*) AS cnt FROM test GROUP BY gender;
 
 ## Hive On Spark
 
+首先，我们需要理解两个概念：
+
+- Hive on Spark： Hive 作为元数据存储，且负责 SQL 的解析与优化，语法是 HQL 语法，执行引擎是 Spark。
+- Spark on Hive： Hive 只作为元数据村吃，Spark 作为执行引擎，且负责 SQL 的解析与优化，语法是 Spark SQL 语法。
+
+将 Spark-3.3.1-bin-without-hadoop.tgz 解压到 /opt/module/spark 目录下。
+
+在 /opt/module/spark/conf 目录下创建 spark-env.sh 文件，并添加以下内容：
+
+```bash
+export JAVA_HOME=/opt/module/jdk
+export HADOOP_HOME=/opt/module/hadoop
+export HIVE_HOME=/opt/module/hive
+```
+
+配置 Spark 的环境变量
+
+```bash
+vim /etc/profile.d/spark.sh
+```
+
+添加以下内容：
+
+```bash
+export SPARK_HOME=/opt/module/spark
+export PATH=$PATH:$SPARK_HOME/bin:$SPARK_HOME/sbin
+```
+
+生效环境变量
+
+```bash
+source /etc/profile.d/spark.sh
+```
+
+在 hive 的配置文件目录 `/opt/module/hive/conf` 中创建 spark 的配置文件 `spark-defaults.conf`，并添加以下内容：
+
+```bash
+spark.master                    yarn
+spark.eventLog.enabled           true
+spark.eventLog.dir               hdfs://hadoop101:8020/spark-logs
+spark.yarn.jars                  hdfs://hadoop101:8020/spark-jars/*
+spark.executor.memory            1g
+spark.driver.memory              1g
+```
+
+在 HDFS 中创建 `spark-logs` 和 `spark-jars` 目录
+
+```bash
+hadoop fs -mkdir -p /spark-logs
+hadoop fs -mkdir -p /spark-jars
+```
+
+将 `/opt/module/spark/jars` 目录下的所有 jar 包上传到 `/spark-jars` 目录下。
+
+```bash
+hadoop fs -put /opt/module/spark/jars/* /spark-jars
+```
+
+在 hive 的配置文件目录 `/opt/module/hive/conf` 中创建 spark 的配置文件 `hive-site.xml`，并添加以下内容：
+
+```xml
+<property>
+	<name>hive.execution.engine</name>
+	<value>spark</value>
+</property>
+<property>
+```
+
+
+
 ## 常见问题
 
 ### JsonSerDe 异常
