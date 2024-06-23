@@ -21,6 +21,37 @@ FROM
 
 ```
 
+## 对方没有的
+
+对于两个格式相同的表，我们可以使用 union 或者 union all 来合并两个表，然后使用 not in 或者 not exists 来找到对方所没有的。
+
+```sql {4-6} showLineNumbers
+select
+    employee_id
+from
+    Employees
+where
+    employee_id not in (select employee_id from Salaries)
+union all
+select
+    employee_id
+from
+    Salaries
+where
+    employee_id not in (select employee_id from Employees)
+    order by
+    employee_id asc
+```
+
+但是对于格式不同的表，我们可以使用 **左连接+null** 的条件判断来实现。
+
+```sql {2,4}
+select c.name as Customers from Customers as c
+left join Orders o
+on c.id = o.customerId
+where o.customerId is null
+```
+
 ## 两表差异（补集）
 
 由于 MySQL 中并没有 full outer join，所以求两个表的补集，**即对方所没有的**，可以先将两个表使用合并，然后再使用和找到只出现一次的。

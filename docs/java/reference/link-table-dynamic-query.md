@@ -124,7 +124,7 @@ public class LoveStickDTO implements Serializable {
 ```
 
 这里的关键点还是非常多的，我们一个一个来分析：
-:::tips
+:::tip
 
 1. 我们这里使用的是 resultMap，而不是 resulttype，这是因为在实际应用中，我们往往需要返回一个 DTO 对象，而不是一个实体对象。
 2. 两个 association 标签分别用于映射两个用户的信息。**并且一定需要放在最后面！！！**

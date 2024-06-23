@@ -378,7 +378,7 @@ hadoop fs -put /opt/module/spark/jars/* /spark-jars
 <property>
 ```
 
-
+然后即可快乐的使用 Spark 来代替 MapReduce 来执行 Hive 的查询任务了。
 
 ## 常见问题
 
