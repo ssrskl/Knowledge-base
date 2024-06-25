@@ -164,6 +164,11 @@ const config: Config = {
             },
             {
               type: "docSidebar",
+              sidebarId: "FlinkSidebar",
+              label: "Flink",
+            },
+            {
+              type: "docSidebar",
               sidebarId: "CoreConceptSidebar",
               label: "核心概念",
             },
