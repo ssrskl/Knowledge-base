@@ -122,6 +122,10 @@ FileSource<String> source  = FileSource.forRecordStreamFormat(
 
 ```
 
+:::warning
+对于第三方生成的数据，例如数据生成器，文件以及 Kafka，生成的都是第三方的数据源，我们需要通过`env.fromSource`方法来加载之后，才能得到 flink 可以使用的数据源。
+:::
+
 ## Flink 序列化
 
 Flink 的序列化包含两种，分别是外部序列化和内部序列化。
@@ -231,6 +235,19 @@ FlatMap 使用`Collector`来收集数据，调用几次就输出几条。
 
 ### 分区与分组
 
+分组（Grouping）和分区（Partitioning）是处理数据流时常用的两种不同的操作，它们在数据处理中扮演着不同的角色。下面简要介绍它们的区别：
+
+**分区：**
+
+1. 分区是指在分布式数据处理环境中，根据数据的特定属性（如键值）将数据分散到不同的计算节点上进行处理的一种方式。这主要用于优化数据处理的并行度和效率。
+2. 分区操作将数据物理上分散到不同的节点上，可以使得数据的处理在不同节点上并行进行，从而提高数据处理的速度和效率。
+3. 在 Flink 的流处理 API 中，数据流的分区通过 partitionBy 方法或其他方法如 rebalance、rescale 等进行设置。
+
+**分组：**
+
+1. 分组通常用于数据集或数据流的批处理中，它按照某个或某些键（Key）将数据分组，以便对这些分组后的数据进行聚合操作（如求和、求平均值等）。
+2. 分组操作会在数据上引入一个逻辑上的分界，让具有相同键值的数据项集中到一起，使得后续操作可以在这些集中的数据项上进行。
+
 ### KeyBy
 
 这里我们在 Flink 中使用的是 DataStream，即数据流的形式，其实可以参考 SQL 中的数据流的思想，所以这里的 KeyBy 操作，可以理解为 SQL 中的分组操作。即`group by`字段。
@@ -326,4 +343,85 @@ reduce.print();
 
 其实实现的思想即传递进去两个参数，然将这两个参数进行合并，然后返回合并后的结果，并且将这个过程不断重复于每一个分组中的元素。
 
+## 分区
 
+分区数量，我们可以通过 env.setParallelism(num)来设置分区数量。
+
+分区（partition）是 Flink 中数据流的一个基本概念。它用于将数据流划分为多个子流（substreams），每个子流可以并行处理，以提高数据处理的效率。
+
+在 Flink 中有如下几种分区方式：
+
+1. 随机分区（shuffle()）
+2. 轮询分区（rebalance()）:如果是数据倾斜的场景，当数据源进来之后，可以使用 rebalance()来解决数据源倾斜问题。
+3. 缩放分区（rescale()）
+4. 广播（broadcast()）
+
+### 自定义分区
+
+可以通过`partitionCustom()`方法来自定义自己的分区策略。如下，自定义一个自己的分区器：
+
+#### 自定义分区器
+
+通过继承自`Partitioner`类，重写`partition(K key, int numPartitions)`方法来实现自定义的分区。其中的两个字段很好理解：
+
+- key：数据的 Key，就比如前面分组中的 KeyBy 中的 KeySelecter，来选择 Key。
+- numPartitions：分区数，即有多少个分区，可以通过`env.setParallelism`来设置。
+
+我们来举个例子，使用数据生成器，生成 1-10 作为数据源，然后使用其值作为 Key，使用 3 个分区，将其均匀的分到 3 个分区中。
+
+首先来看环境搭建以及数据生成器：
+
+```java
+// env
+StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+env.setParallelism(3);
+// 创建数据源
+// 数据生成器
+DataGeneratorSource<String> source =
+        new DataGeneratorSource<>(
+                new GeneratorFunction<Long, String>() {
+                    @Override
+                    public String map(Long aLong) throws Exception {
+                        return String.valueOf(aLong);
+                    }
+                },
+                10,
+                RateLimiterStrategy.perSecond(1),
+                Types.STRING
+        );
+
+DataStreamSource<String> dataGen = env.fromSource(source, WatermarkStrategy.noWatermarks(), "DataGen");
+```
+
+然后我们需要自定义一个分区器，将 key 转换为整数，然后再对分区数进行取余操作，即可得到分区结果。
+
+```java
+public class MyPartitioner implements Partitioner<String> {
+
+    @Override
+    public int partition(String key, int numPartitions) {
+        return Integer.parseInt(key) % numPartitions;
+    }
+}
+```
+
+然后我们需要使用我们的自定义分区器，以及设置 key 选择器：
+
+```java
+dataGen.partitionCustom(new MyPartitioner(), new KeySelector<String, String>() {
+            @Override
+            public String getKey(String value) throws Exception {
+                return value;
+            }
+        }).print();
+```
+
+## 分流
+
+![alt text](./imgs/flink-diversion.png)
+
+## Sink
+
+## Window 窗口
+
+概念：Flink 是一种流式计算引擎，主要是来处理无界数据流的，数据源源不断、无穷无尽。想要更加方便高效地处理无界流，一种方式就是将无限数据切割成有限的“数据块”进行处理，这就是所谓的“窗口”（Window）。
