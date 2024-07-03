@@ -3,6 +3,10 @@ title: Flink 基础概念
 tags: [大数据, Flink]
 ---
 
+[Flink 面试题](https://www.cnblogs.com/crazymakercircle/p/17619152.html)
+
+[Flink 核心概念大盘点](https://www.bilibili.com/video/BV18S4y1L7DU/)
+
 ## Flink 中的 API
 
 Flink 为流式/批式处理应用程序的开发提供了不同级别的抽象。
@@ -250,7 +254,7 @@ FlatMap 使用`Collector`来收集数据，调用几次就输出几条。
 
 ### KeyBy
 
-这里我们在 Flink 中使用的是 DataStream，即数据流的形式，其实可以参考 SQL 中的数据流的思想，所以这里的 KeyBy 操作，可以理解为 SQL 中的分组操作。即`group by`字段。
+可以通过 KeyBy 关键字对数据进行重新分区，分区之后分配到对应的子任务当中。
 
 ```java
 DataStreamSource<User> userDataStreamSource = env.fromElements(
@@ -268,9 +272,15 @@ DataStreamSource<User> userDataStreamSource = env.fromElements(
  });
 ```
 
-keyBy 的语法即，使用一个`KeySelector`重写其中的 getKey 方法，来设定每个字段的 Key 是怎么来的，然后根据这个 Key 来进行分组。
+keyBy 的语法即，使用一个`KeySelector`重写其中的 getKey 方法，来设定每个字段的 Key 是怎么来的，然后根据这个 Key 来进行分区。
 
-### 简单聚合（sum/max/min/minBy/maxBy）
+#### KeyBy 底层实现原理
+
+KeyBy 得到的数据类型是键控流（KeyedStream）所以泛型有两个类型，分别是数据类型以及 Key 的类型。
+
+KeyBy 底层通过**对 Key 的值进行 Hash，再做一次 mumurHash，取模运算，再通过 Job 的并行度**，就可以知道每个 Key 应该分配到哪个子任务当中了。
+
+### 简单聚合
 
 :::warning
 简单聚合算子只有在 keyBy 之后才能使用，否则会报错。
@@ -425,3 +435,100 @@ dataGen.partitionCustom(new MyPartitioner(), new KeySelector<String, String>() {
 ## Window 窗口
 
 概念：Flink 是一种流式计算引擎，主要是来处理无界数据流的，数据源源不断、无穷无尽。想要更加方便高效地处理无界流，一种方式就是将无限数据切割成有限的“数据块”进行处理，这就是所谓的“窗口”（Window）。
+
+## 窗口的分类
+
+### 驱动类型
+
+窗口是截取有界数据的一种方式，那么我们以什么样的标准来定义**开始和结束**呢？这就叫做窗口的驱动类型。
+
+#### 时间窗口
+
+按照时间来定义窗口的开始与结束。
+
+#### 计数窗口
+
+按照数据条数来定义窗口的开始与结束。
+
+### 按照窗口分配数据的规则
+
+#### 滚动窗口
+
+#### 滑动窗口
+
+#### 会话窗口
+
+#### 全局窗口
+
+## 窗口函数 API
+
+可以分为**按键分区**和**非按键分区**：
+
+- 按键分区：将数据流按照 Key 进行分区，然后对 KeyedStream 来开窗。
+- 非按键分区：在没有分区的 DataStream 上进行开窗。
+
+即在调用窗口函数前是否有 KeyBy 操作。
+
+窗口函数的操作主要有两个部分：
+
+- 窗口分配器（Window Assigner）
+- 窗口函数（Window Function）
+
+```java
+stream.keyBy(keySelector)
+    .window(windowAssigner)
+    .aggregate(windowFunction)
+```
+
+## 窗口分配器
+
+窗口分配器就是在指定窗口的类型，定义数据应该被分配到哪个窗口。
+
+## 窗口函数
+
+使用窗口分配器来将数据聚合起来，使用窗口函数来对聚合的数据进行计算。
+
+### 增量聚合 Reduce
+
+### 增量聚合 Aggregate
+
+## 总结与提问
+
+### Flink 的模型是什么样的？
+
+Source->Transformation->Sink
+
+从数据流开始，经过数据转换，再输出即可。
+
+### Flink 的并行度是什么？怎么设置？
+
+[并行执行](https://nightlies.apache.org/flink/flink-docs-master/zh/docs/dev/datastream/execution/parallel/)
+
+在 Flink 中，"并行度"（Parallelism）是指 Flink 任务执行时，能够并行运行的算子（例如，map、reduce 等）或任务实例的数量。
+
+全局并行度：在执行环境上设置并行度
+
+```java
+StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+env.setParallelism(10); // 设置全局并行度为10
+```
+
+算子级别并行度：为特定的算子设置并行度
+
+```java
+DataStream<String> text = env.readTextFile("path/to/text");
+text.flatMap(new MyFlatMapFunction())
+    .setParallelism(5); // 为这个flatMap算子设置并行度为5
+```
+
+配置文件设置：在`flink-conf.yaml`配置文件中设置
+
+```yaml
+parallelism.default: 10
+```
+
+命令提交设置：在命令行提交任务时，使用`-p`参数来设置并行度
+
+```bash
+$ bin/flink run -p 10 examples/streaming/WordCount.jar
+```

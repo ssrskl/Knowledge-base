@@ -275,6 +275,17 @@ const config: Config = {
     },
   } satisfies Preset.ThemeConfig,
 
+  stylesheets: [
+    {
+      href: "/fonts/my-font.ttf",
+      type: "font/ttf",
+      rel: "preload",
+      as: "font",
+      crossOrigin: "anonymous",
+    },
+    "/css/custom.css",
+  ],
+
   themes: [
     [
       "@easyops-cn/docusaurus-search-local",
