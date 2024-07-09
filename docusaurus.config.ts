@@ -61,7 +61,7 @@ const config: Config = {
       title: "Code Guide",
       logo: {
         alt: "My Site Logo",
-        src: "img/logo.svg",
+        src: "img/logo.jpg",
       },
       items: [
         { to: "/blog", label: "博客", position: "left" },

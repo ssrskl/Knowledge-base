@@ -7,6 +7,8 @@ tags: [大数据, Flink]
 
 [Flink 核心概念大盘点](https://www.bilibili.com/video/BV18S4y1L7DU/)
 
+[Flink 1.18 中文文档](https://nightlies.apache.org/flink/flink-docs-release-1.18/zh/)
+
 ## Flink 中的 API
 
 Flink 为流式/批式处理应用程序的开发提供了不同级别的抽象。
@@ -17,6 +19,17 @@ Flink 为流式/批式处理应用程序的开发提供了不同级别的抽象�
 - DataStream API 提供了更低的抽象级别，直接处理数据流（events）。它允许用户通过编程方式详细控制每个数据项的处理逻辑，适合于需要精细操作的场景。
 - Table API 适用于结构化数据处理，特别是当处理逻辑可以用 SQL 表达式清晰表达时。它适合进行聚合、连接、过滤等操作。
 - DataStream API 适用于需要对数据流进行详细处理的场景，如对数据流进行复杂的转换、自定义的窗口操作或需要处理时间特性的场景。
+
+## Flink 的流式 API 的执行顺序
+
+1. 创建执行环境
+2. 定义数据源
+3. 将数据源转换为数据流，即将数据源加载到环境中
+4. 设置时间特性以及水位线
+5. 对数据流进行转换操作（转换操作包括 map、flatMap、filter、keyBy、window、reduce、aggregate 等。可以对数据流进行分组、窗口化等操作。）
+6. 定义数据流的处理逻辑
+7. 定义输出
+8. 触发执行
 
 ## Flink Data Source
 
@@ -430,6 +443,43 @@ dataGen.partitionCustom(new MyPartitioner(), new KeySelector<String, String>() {
 
 ![alt text](./imgs/flink-diversion.png)
 
+### 简单分流
+
+使用 filter 过滤器进行筛选，本质上是是将原始数据流 stream 复制多份，然后对每一份分别做筛选。
+
+```java
+public static void main(String[] args) throws Exception {
+    // env
+    StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+
+    // 创建数据源
+    // 数据生成器
+    DataGeneratorSource<Long> source =
+            new DataGeneratorSource<>(
+                    new GeneratorFunction<Long, Long>() {
+                        @Override
+                        public Long map(Long aLong) throws Exception {
+                            return aLong;
+                        }
+                    },
+                    10,
+                    RateLimiterStrategy.perSecond(1),
+                    Types.LONG
+            );
+
+    DataStreamSource<Long> dataGen = env.fromSource(source, WatermarkStrategy.noWatermarks(), "DataGen");
+    SingleOutputStreamOperator<Long> filter = dataGen.filter(x -> x % 2 == 0);
+    SingleOutputStreamOperator<Long> filter1 = dataGen.filter(x -> x % 2 == 1);
+
+    filter.print("偶数");
+    filter1.print("奇数");
+
+    env.execute("ShuntDemo");
+}
+```
+
+### 侧输出流
+
 ## Sink
 
 ## Window 窗口
@@ -464,8 +514,8 @@ dataGen.partitionCustom(new MyPartitioner(), new KeySelector<String, String>() {
 
 可以分为**按键分区**和**非按键分区**：
 
-- 按键分区：将数据流按照 Key 进行分区，然后对 KeyedStream 来开窗。
-- 非按键分区：在没有分区的 DataStream 上进行开窗。
+- 按键分区：将数据流按照 Key 进行分区，然后对 KeyedStream 来开窗，就是对每一个 key 上都定义了一组窗口，各自进行独立的计算。
+- 非按键分区：可以理解为只有一个组，即一个分区，然后在这一个分区上进行开窗。使用`windowAll`方法。
 
 即在调用窗口函数前是否有 KeyBy 操作。
 
@@ -484,13 +534,78 @@ stream.keyBy(keySelector)
 
 窗口分配器就是在指定窗口的类型，定义数据应该被分配到哪个窗口。
 
+**滚动处理时间窗口**
+
+```java
+TumblingEventTimeWindows.of(Duration.ofSeconds(5))
+```
+
+:::tip
+老版本使用的是`Time.seconds(5)`，而新版本使用的是`Duration.ofSeconds(5)`。
+:::
+
 ## 窗口函数
 
 使用窗口分配器来将数据聚合起来，使用窗口函数来对聚合的数据进行计算。
 
 ### 增量聚合 Reduce
 
+`reduce`聚合是作用在整个数据流的元素上，用户需要自定义的规约函数来进行聚合操作。在处理无限流的时候，我们需要先使用窗口进行拆分，再使用`Reduce`进行聚合。
+
+```java
+    public static void main(String[] args) throws Exception {
+        // env
+        StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+        // 创建DataStream。这里只是一个例子，实际上数据可能来自文件、数据库或消息队列等。
+        DataStreamSource<User> userDataStreamSource = env.fromElements(
+                new User(1, "猫颜", 22, 1),
+                new User(1, "赵云", 23, 1),
+                new User(1, "刘备", 24, 1),
+                new User(2, "张飞", 24, 2),
+                new User(2, "关羽", 25, 3)
+        );
+
+        // KeyBy分组
+        KeyedStream<User, Integer> userIntegerKeyedStream = userDataStreamSource.keyBy(new KeySelector<User, Integer>() {
+            @Override
+            public Integer getKey(User user) throws Exception {
+                return user.getGroupId();
+            }
+        });
+        // Reduce聚合
+        SingleOutputStreamOperator<User> reduce = userIntegerKeyedStream.reduce(new ReduceFunction<User>() {
+            @Override
+            public User reduce(User user, User t1) throws Exception {
+                return new User(user.getGroupId(), user.getName() + t1.getName(), user.getAge() + t1.getAge(), user.getGroupId());
+            }
+        });
+        // 打印结果
+        reduce.print();
+
+        // 执行任务
+        env.execute();
+    }
+```
+
 ### 增量聚合 Aggregate
+
+Reduce 聚合的问题是：就是聚合状态的类型、输出结果的类型都必须和输入数据类型一样。而`aggregate`聚合就突破了这个限制，
+
+## 处理函数
+
+处理函数的背景：
+
+处理函数的使用：基于 DataStream 调用`process`方法，并传入`ProcessFunction`对象作为参数。
+
+### 基本处理函数
+
+#### ProcessFunction
+
+### 窗口处理函数
+
+窗口处理函数是基于`WindowedStream`直接调用即可。
+
+
 
 ## 总结与提问
 
@@ -531,4 +646,47 @@ parallelism.default: 10
 
 ```bash
 $ bin/flink run -p 10 examples/streaming/WordCount.jar
+```
+
+### 三中时间语意是什么？分别的应用场景
+
+- Event Time：这是实际应用最常见的时间语义，指的是事件创建的时间，往往跟 watermark 结合使用。
+- Processing Time：指每一个执行基于时间操作的算子的本地系统时间，与机器相关。适用场景：没有事件时间的情况下，或者对实时性要求超高的情况
+- Ingestion Time：指数据进入 Flink 的时间。适用场景：存在多个 Source Operator 的情况下，每个 Source Operator 可以使用自己本地系统时钟指派 Ingestion Time。后续基于时间相关的各种操作， 都会使用数据记录中的 Ingestion Time
+
+## 案例
+
+### 简单的自定义水位线+窗口
+
+```java
+    public static void main(String[] args) throws Exception {
+        // env
+        StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+        // socket数据流
+        DataStreamSource<String> stringDataStreamSource = env.socketTextStream("110.41.50.108", 9000);
+
+        // 自定义水位线生成策略
+        WatermarkStrategy<String> stringWatermarkStrategy = WatermarkStrategy.<String>forMonotonousTimestamps().withTimestampAssigner(new SerializableTimestampAssigner<String>() {
+            @Override
+            public long extractTimestamp(String element, long recordTimestamp) {
+                System.out.println("数据=" + element + ",时间戳=" + recordTimestamp);
+                return Integer.parseInt(element);
+            }
+        });
+        // 数据流应用水位线生成策略
+        SingleOutputStreamOperator<String> stringSingleOutputStreamOperator = stringDataStreamSource.assignTimestampsAndWatermarks(stringWatermarkStrategy);
+
+        // 滑动窗口
+        AllWindowedStream<String, TimeWindow> stringTimeWindowAllWindowedStream = stringSingleOutputStreamOperator.windowAll(TumblingEventTimeWindows.of(Duration.ofSeconds(5)));
+
+        // 计算
+        SingleOutputStreamOperator<String> reduce = stringTimeWindowAllWindowedStream.reduce(
+                (s, s2) -> s + "," + s2
+        );
+        // 打印
+        reduce.print();
+
+        // 执行任务
+        env.execute();
+    }
 ```
