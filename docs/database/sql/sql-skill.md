@@ -87,3 +87,36 @@ offset
 -- 也可以简写为
 limit 1,1
 ```
+
+## 单表重复
+
+例如：[查找重复的电子邮箱](./exercises/duplicate-emails/#思考)
+
+使用**自连接然后去重**的方式来解决。
+
+```sql
+select distinct p1.email as Email
+from Person as p1
+inner join Person as p2
+on p1.id != p2.id and p1.Email = p2.Email
+```
+
+## 连续问题
+
+比如一个值连续出现了几次的问题：[连续出现的数字](./exercises/consecutive-numbers.md/#思考)
+
+对于连续的问题，通过自连接 n 次，每次的连接都是与下一个字段进行连接来实现。
+
+```sql
+SELECT DISTINCT
+    l1.Num AS ConsecutiveNums
+FROM
+    Logs l1,
+    Logs l2,
+    Logs l3
+WHERE
+    l1.Id = l2.Id - 1
+    AND l2.Id = l3.Id - 1
+    AND l1.Num = l2.Num
+    AND l2.Num = l3.Num
+```
