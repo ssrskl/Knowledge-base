@@ -62,10 +62,33 @@ function get(url) {
 }
 // 然后调用get方法
 
-get("http://www.baidu.com").then((res) => {
-  console.log(res);
-}).catch((err) => {
-  console.log(err);
-});
+get("http://www.baidu.com")
+  .then((res) => {
+    console.log(res);
+  })
+  .catch((err) => {
+    console.log(err);
+  });
 ```
 
+## Promise.all
+
+Promise.all() 方法接收一个 Promise 对象的数组作为参数，返回一个新的 Promise 对象。当所有的 Promise 对象都成功时，新的 Promise 对象的状态变为成功，并且返回一个包含所有 Promise 对象结果的数组。如果任何一个 Promise 对象失败，新的 Promise 对象的状态变为失败，并且返回第一个失败的 Promise 对象的结果。
+
+```ts
+let promise1 = new Promise((resolve, reject) => {
+  setTimeout(() => {
+    resolve("promise1");
+  }, 1000);
+});
+
+let promise2 = new Promise((resolve, reject) => {
+  setTimeout(() => {
+    resolve("promise2");
+  }, 2000);
+});
+
+Promise.all([promise1, promise2]).then((res) => {
+  console.log(res); // ["promise1", "promise2"]
+});
+```

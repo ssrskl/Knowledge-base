@@ -90,6 +90,8 @@ limit 1,1
 
 ## 单表重复
 
+### 单表单列重复
+
 例如：[查找重复的电子邮箱](./exercises/duplicate-emails/#思考)
 
 使用**自连接然后去重**的方式来解决。
@@ -101,7 +103,15 @@ inner join Person as p2
 on p1.id != p2.id and p1.Email = p2.Email
 ```
 
+### 单表双列重复
+
+[586. 订单最多的客户](https://leetcode.cn/problems/customer-placing-the-largest-number-of-orders/description/)
+
+
+
 ## 连续问题
+
+### 连续出现的数字
 
 比如一个值连续出现了几次的问题：[连续出现的数字](./exercises/consecutive-numbers.md/#思考)
 
@@ -120,3 +130,30 @@ WHERE
     AND l1.Num = l2.Num
     AND l2.Num = l3.Num
 ```
+
+### 连续的数据
+
+这里的数据可以涵盖很多的例子，比如连续的 ID，连续的日期等，我们可以借助`row_number()`开窗函数与连续的数据斜率相同，通过两者相减，即可进行分组。
+
+例如这个题目：[601. 体育馆的人流量](https://leetcode.cn/problems/human-traffic-of-stadium/description/)
+
+```sql
+with t1 as(
+    select *,id - row_number() over(order by id) as rk
+    from stadium
+    where people >= 100
+)
+
+select id,visit_date,people
+from t1
+where rk in(
+    select rk
+    from t1
+    group by rk
+    having count(rk) >= 3
+)
+```
+
+通过`id - row_number() over(order by id) as rk`来得到连续的数据，然后再分组，然后通过`having`来判断是否大于 3 即可。
+
+那么假设我们需要求取连续的日期，我们只需要在原始的表上添加一个自增的字段即可。

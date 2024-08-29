@@ -45,6 +45,54 @@ Docker 具有以下主要优势:
 
 ## Linux 安装 Docker
 
+不同的发行版安装 Docker 的方式大同小异，我这里以 CentOS7 为例
+
+### CentOS7 安装 Docker
+
+参考资料：
+
+1. [Install Docker Engine on CentOS](https://docs.docker.com/engine/install/centos/)
+2. [Docker CE 镜像](https://developer.aliyun.com/mirror/docker-ce?spm=a2c6h.13651102.0.0.57e31b11zr5mBY)
+
+:::danger
+centos 如果直接使用`yum -y install docker`安装的是企业版的 Docker，版本只有 1.13，版本很老，而我们需要安装的是社区版的 Docker，即 Docker CE。
+:::
+
+首先先彻底的卸载 Docker
+
+```bash
+sudo yum remove docker \
+                  docker-client \
+                  docker-client-latest \
+                  docker-common \
+                  docker-latest \
+                  docker-latest-logrotate \
+                  docker-logrotate \
+                  docker-engine
+```
+
+然后再按照阿里云的 Docker CE 镜像中的 Centos 的安装方式即可
+
+```bash
+# step 1: 安装必要的一些系统工具
+sudo yum install -y yum-utils device-mapper-persistent-data lvm2
+# Step 2: 添加软件源信息
+sudo yum-config-manager --add-repo https://mirrors.aliyun.com/docker-ce/linux/centos/docker-ce.repo
+# Step 3
+sudo sed -i 's+download.docker.com+mirrors.aliyun.com/docker-ce+' /etc/yum.repos.d/docker-ce.repo
+# Step 4: 更新并安装Docker-CE
+sudo yum makecache fast
+sudo yum -y install docker-ce
+# Step 4: 开启Docker服务
+sudo service docker start
+```
+
+最后配置 Docker 自启动即可
+
+```bash
+sudo systemctl enable docker
+```
+
 ## Windows 安装 Docker
 
 ## 配置 Docker

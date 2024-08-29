@@ -12,6 +12,10 @@ tags: [大数据, Hadoop]
 
 ## 安装 Hadoop
 
+:::info
+对于复杂的软件的安装一定要参考官方文档！！！
+:::
+
 安装到`/opt/module/hadoop`中，配置环境变量
 
 ```bash
@@ -39,6 +43,78 @@ source /etc/profile
 ```
 
 使用`hadoop`命令验证是否安装成功。
+
+### Docker 安装 Hadoop
+
+在`/opt/docker/hadoop`目录下创建`config`文件
+
+```txt
+CORE-SITE.XML_fs.default.name=hdfs://namenode
+CORE-SITE.XML_fs.defaultFS=hdfs://namenode
+HDFS-SITE.XML_dfs.namenode.rpc-address=namenode:8020
+HDFS-SITE.XML_dfs.replication=1
+MAPRED-SITE.XML_mapreduce.framework.name=yarn
+MAPRED-SITE.XML_yarn.app.mapreduce.am.env=HADOOP_MAPRED_HOME=$HADOOP_HOME
+MAPRED-SITE.XML_mapreduce.map.env=HADOOP_MAPRED_HOME=$HADOOP_HOME
+MAPRED-SITE.XML_mapreduce.reduce.env=HADOOP_MAPRED_HOME=$HADOOP_HOME
+YARN-SITE.XML_yarn.resourcemanager.hostname=resourcemanager
+YARN-SITE.XML_yarn.nodemanager.pmem-check-enabled=false
+YARN-SITE.XML_yarn.nodemanager.delete.debug-delay-sec=600
+YARN-SITE.XML_yarn.nodemanager.vmem-check-enabled=false
+YARN-SITE.XML_yarn.nodemanager.aux-services=mapreduce_shuffle
+CAPACITY-SCHEDULER.XML_yarn.scheduler.capacity.maximum-applications=10000
+CAPACITY-SCHEDULER.XML_yarn.scheduler.capacity.maximum-am-resource-percent=0.1
+CAPACITY-SCHEDULER.XML_yarn.scheduler.capacity.resource-calculator=org.apache.hadoop.yarn.util.resource.DefaultResourceCalculator
+CAPACITY-SCHEDULER.XML_yarn.scheduler.capacity.root.queues=default
+CAPACITY-SCHEDULER.XML_yarn.scheduler.capacity.root.default.capacity=100
+CAPACITY-SCHEDULER.XML_yarn.scheduler.capacity.root.default.user-limit-factor=1
+CAPACITY-SCHEDULER.XML_yarn.scheduler.capacity.root.default.maximum-capacity=100
+CAPACITY-SCHEDULER.XML_yarn.scheduler.capacity.root.default.state=RUNNING
+CAPACITY-SCHEDULER.XML_yarn.scheduler.capacity.root.default.acl_submit_applications=*
+CAPACITY-SCHEDULER.XML_yarn.scheduler.capacity.root.default.acl_administer_queue=*
+CAPACITY-SCHEDULER.XML_yarn.scheduler.capacity.node-locality-delay=40
+CAPACITY-SCHEDULER.XML_yarn.scheduler.capacity.queue-mappings=
+CAPACITY-SCHEDULER.XML_yarn.scheduler.capacity.queue-mappings-override.enable=false
+```
+
+在同一个目录下创建`dcoker-compose.yaml`文件
+
+```yaml
+version: "2"
+services:
+  namenode:
+    image: hadoop:3.3.6
+    hostname: namenode
+    command: ["hdfs", "namenode"]
+    ports:
+      - 9870:9870
+    env_file:
+      - ./config
+    environment:
+      ENSURE_NAMENODE_DIR: "/tmp/hadoop-root/dfs/name"
+  datanode:
+    image: hadoop:3.3.6
+    command: ["hdfs", "datanode"]
+    env_file:
+      - ./config
+  resourcemanager:
+    image: hadoop:3.3.6
+    hostname: resourcemanager
+    command: ["yarn", "resourcemanager"]
+    ports:
+      - 8088:8088
+    env_file:
+      - ./config
+    volumes:
+      - ./test.sh:/opt/test.sh
+  nodemanager:
+    image: hadoop:3.3.6
+    command: ["yarn", "nodemanager"]
+    env_file:
+      - ./config
+```
+
+![alt text](./imgs/docker-hadoop.png)
 
 ## 前置配置
 
@@ -136,8 +212,103 @@ hadoop jar /opt/module/hadoop/share/hadoop/mapreduce/hadoop-mapreduce-examples-3
 
 ### 伪分布式模式
 
+官方文档：[Pseudo-Distributed Operation](https://hadoop.apache.org/docs/stable/hadoop-project-dist/hadoop-common/SingleCluster.html#Pseudo-Distributed_Operation)
+
 使用伪分布式模式搭建 Hadoop，那么我们不需要安装多个节点，只需要在一台机器上模拟多个节点，从而完成一些操作的测试。所以直接开始配置 4 个核心的配置文件即可。
 ![alt text](./imgs/hadoop-profile.png)
+
+core-site.xml
+
+```xml
+<configuration>
+    <property>
+        <name>fs.defaultFS</name>
+        <value>hdfs://localhost:9000</value>
+    </property>
+    <!-- 指定 NameNode的日志和数据测存储目录-->
+    <property>
+	    <name>hadoop.tmp.dir</name>
+	    <value>/opt/module/hadoop/data</value>
+    </property>
+    <property>
+        <name>hadoop.proxyuser.root.hosts</name>
+        <value>*</value>
+    </property>
+    <property>
+        <name>hadoop.proxyuser.root.groups</name>
+        <value>*</value>
+    </property>
+</configuration>
+```
+
+hdfs-site.xml
+
+```XML
+<configuration>
+    <property>
+        <name>dfs.replication</name>
+        <value>1</value>
+    </property>
+</configuration>
+```
+
+检查能否 ssh 连接到自己的主机`ssh localhost`
+
+格式化文件系统
+
+```bash
+bin/hdfs namenode -format
+```
+
+启动 NameNode 和 DataNode
+
+```bash
+sbin/start-dfs.sh
+```
+
+### 单节点上的 YARN
+
+在伪分布式的基础上配置 yarn 的相关参数
+
+mapred-site.xml
+
+```xml
+<configuration>
+    <property>
+        <name>mapreduce.framework.name</name>
+        <value>yarn</value>
+    </property>
+    <property>
+        <name>mapreduce.application.classpath</name>
+        <value>$HADOOP_MAPRED_HOME/share/hadoop/mapreduce/*:$HADOOP_MAPRED_HOME/share/hadoop/mapreduce/lib/*</value>
+    </property>
+</configuration>
+```
+
+yarn-site.xml
+
+```xml
+<configuration>
+    <property>
+        <name>yarn.nodemanager.aux-services</name>
+        <value>mapreduce_shuffle</value>
+    </property>
+    <property>
+        <name>yarn.nodemanager.env-whitelist</name>
+        <value>JAVA_HOME,HADOOP_COMMON_HOME,HADOOP_HDFS_HOME,HADOOP_CONF_DIR,CLASSPATH_PREPEND_DISTCACHE,HADOOP_YARN_HOME,HADOOP_HOME,PATH,LANG,TZ,HADOOP_MAPRED_HOME</value>
+    </property>
+</configuration>
+```
+
+启动 Yarn
+
+```bash
+sbin/start-yarn.sh
+```
+
+ResourceManager 的访问地址为 http://localhost:8088/
+
+### <span style={{color:'red',fontWeight:'bold'}}>完全分布式运行(重点)</span>
 
 #### core-site.xml
 
@@ -255,8 +426,6 @@ vim /opt/module/hadoop/etc/hadoop/workers
 ```bash
 hadoop101
 ```
-
-### <span style={{color:'red',fontWeight:'bold'}}>完全分布式运行(重点)</span>
 
 ## 初始化 Hadoop 文件系统
 

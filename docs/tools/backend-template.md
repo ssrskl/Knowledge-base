@@ -260,6 +260,27 @@ public class CorsConfig {
 }
 ```
 
+### 配置 SaToken
+
+官网：[SaToken](https://sa-token.cc/v/v1.36.0/doc.html#/use/at-check)
+
+这里按照需求来配置，如果要使用注解鉴权，比如使用`@SaCheckLogin`来校验是否登录，就需要注册 Sa-Token 拦截器。如果需要权限认证，就需要定义`StpInterfaceImpl`组件来定义用户的权限以及角色等信息。
+
+创建配置类`SaTokenConfigure.java`
+
+```java
+@Configuration
+public class SaTokenConfigure implements WebMvcConfigurer {
+    // 注册 Sa-Token 拦截器，打开注解式鉴权功能
+    @Override
+    public void addInterceptors(InterceptorRegistry registry) {
+        // 注册 Sa-Token 拦截器，打开注解式鉴权功能
+        registry.addInterceptor(new SaInterceptor()).addPathPatterns("/**");
+    }
+}
+
+```
+
 ### 配置 Swagger
 
 在`Application`类中设置安全模式
@@ -596,6 +617,7 @@ generatorConfig.xml 内容如下:
                 </configuration>
             </plugin>
 ```
+
 然后执行插件命令即可
 
 ![alt text](./imgs/code-generate-plugin.png)

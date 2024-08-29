@@ -39,7 +39,87 @@ Metastore 有三种配置方式，分别是内嵌模式、本地模式、远程�
 
 远程模式（Remote Metastore）下，Metastore 服务在其自己的单独 JVM 上运行，而不在 HiveServer 的 JVM 中运行。如果其他进程希望与 Metastore 服务器通信，则可以使用 Thrift Network API 进行通信。在生产环境中，建议用远程模式来配置 Hive Metastore。在这种情况下，其他依赖 Hive 的软件都可以通过 Metastore 访问 Hive。由于还可以完全屏蔽数据库层，因此这也带来了更好的可管理性/安全性。**远程模式下，需要配置 hive.metastore.uris 参数来指定 Metastore 服务运行的机器 ip 和端口，并且需要单独手动启动 Metastore 服务**。
 
+## 基础安装
+
+更新时间：2024-08-25
+
+---
+
+官方文档：[GettingStarted](https://cwiki.apache.org/confluence/display/Hive/GettingStarted#GettingStarted-ConfigurationManagementOverview)
+
+即用最简单可行的方式进行安装，不做过多的操作。
+
+首先配置三个环境变量
+
+```bash
+export HADOOP_HOME=/opt/module/hadoop
+export HIVE_CONF_DIR=/opt/module/hive/conf
+export HIVE_HOME=/opt/module/hive
+```
+
+其次，必须要在 HDFS 中创建/tmp 和/user/hive/warehouse，并设置权限之后，才可以在 Hive 中创建表。
+
+```bash
+$HADOOP_HOME/bin/hadoop fs -mkdir       /tmp
+$HADOOP_HOME/bin/hadoop fs -mkdir  -p   /user/hive/warehouse
+$HADOOP_HOME/bin/hadoop fs -chmod g+w   /tmp
+$HADOOP_HOME/bin/hadoop fs -chmod g+w   /user/hive/warehouse
+```
+
+初始化数据库，这里使用 derby 作为数据库。
+
+```bash
+$HIVE_HOME/bin/schematool -dbType derby -initSchema
+```
+
+然后即可正常的使用 Hive 了
+
+```bash
+$HIVE_HOME/bin/hive
+```
+
+但是我们还需要进行远程连接 Hive，所以还需要如下的配置
+
+首先将当前用户加入到 Hadoop 的配置中，见-->[配置 Hadoop](./#配置-hadoop)
+
+然后再更新一下 Hive 的配置文件`hive-site.xml`
+
+```xml
+<configuration>
+<!-- 配置hiveserver2端口 -->
+  <property>
+    <name>hive.server2.thrift.port</name>
+    <value>10000</value>
+  </property>
+  <!-- 关闭安全验证 -->
+  <property>
+    <name>hive.metastore.event.db.notification.api.auth</name>
+    <value>false</value>
+  </property>
+</configuration>
+```
+
+后台启动 hive 服务
+
+:::danger
+注意 ⚠️：这里的`$HIVE_HOME/bin/hiveserver2`命令一定要先 cd 到`$HIVE_HOME/bin`目录下执行，否则会无法启动，不清楚是为什么。
+:::
+
+```bash
+$HIVE_HOME/bin/hiveserver2
+```
+
+:::warning
+在连接 Hive 的时候，要将用户设置为 root！！，密码不用填写，否则默认的是用户是`user=anonymous`在 hadoop 中没有权限。
+:::
+
+![alt text](./imgs/hive-link.png)
+
 ## 安装
+
+:::tip
+如果你只是为了练习 HQL，需要搭建 Hive 环境，那么我建议你直接使用 Docker 来搭建 Hive 环境，比自己搭建要便捷太多了！！！-->[docker-安装-hive](./#docker-安装-hive)
+:::
 
 :::tip
 Hive 是单机工具，只需要部署在一台服务器即可。Hive 虽然是单机的，但是它可以提交分布式运行的 MapReduce 程序运行.Hive 需要使用元数据服务，即需要提供一个关系型数据库，我们也选择一台服务器安装关系型数据库即可
@@ -152,6 +232,11 @@ export HIVE_AUX_JARS_PATH=/opt/module/hive/lib
     <value>ar352878987</value>
   </property>
   <property>
+		<name>hive.metastore.warehouse.dir</name>
+		<value>/user/hive/warehouse</value>
+    <discription>指定数据仓库的位置</discription>
+	</property>
+  <property>
     <name>hive.server2.thrift.bind.host</name>
     <value>hadoop101</value>
   </property>
@@ -174,6 +259,45 @@ export HIVE_AUX_JARS_PATH=/opt/module/hive/lib
 
 如下是配置解释：
 ![alt text](./imgs/configuration-interpretation.png)
+
+### Docker 安装 Hive
+
+因为我们需要使用 Hive 来做联系，但是 Hive 的安装极其的麻烦，所以我们可以使用 Docker 来快捷安装 Hive，然后再连接 Hive 容器来进行练习 HQL，安装之前我们需要配置 Docker，详见-->[docker 镜像加速](../../tools/docker/docker-operation/#docker镜像加速)。
+
+独立启动 Metastore
+
+```bash
+docker run -d -p 9083:9083 --env SERVICE_NAME=metastore --name metastore-standalone hive:3.1.3
+```
+
+:::warning
+由于 Docker 中的 Metastore 在重新启动的时候会自动执行初始化方法，所以我们可以将其挂在云服务器上防治其随机器重启。
+:::
+
+使用 MySQL 的 Metastore，独立启动
+
+```bash
+docker run -d -p 9083:9083 --env SERVICE_NAME=metastore --env DB_DRIVER=postgres \
+--env SERVICE_OPTS="-Djavax.jdo.option.ConnectionDriverName=com.mysql.cj.jdbc.Driver -Djavax.jdo.option.ConnectionURL=jdbc:mysql://110.41.50.108:3306/hive -Djavax.jdo.option.ConnectionUserName=root -Djavax.jdo.option.ConnectionPassword=ar352878987" \
+--mount source=warehouse,target=/opt/hive/data/warehouse \
+--name metastore-standalone hive:3.1.3
+```
+
+:::danger
+MySQL8+需要`com.mysql.cj.jdbc.Driver`驱动，但是似乎容器中并没有，对于 MySQL5 的版本我暂时还没有试验。
+:::
+
+安装 HiveServer2 并使用挂载用于持久化数据，**使用云服务器的 Metastore**。
+
+```bash
+docker run -d -p 10000:10000 -p 10002:10002 --env SERVICE_NAME=hiveserver2 \
+--env SERVICE_OPTS="-Dhive.metastore.uris=thrift://110.41.50.108:9083" \
+--mount source=warehouse,target=/opt/hive/data/warehouse \
+--env IS_RESUME="true" \
+--name hiveserver2 hive:3.1.3
+```
+
+`source=warehouse`在本地的路径为：`/var/lib/docker/volumes/warehouse`
 
 ## 常见的其他的配置元素
 
@@ -207,6 +331,10 @@ Hive 的默认仓库在 HDFS 的/user/hive/warehouse 路径下，可以在 hive-
     <value>true</value>
   </property>
 ```
+
+### 更改 Hive 配置目录的位置
+
+通过设置`HIVE_CONF_DIR`环境变量来更改。
 
 ## 初始化元数据库
 
@@ -395,3 +523,7 @@ hadoop fs -put /opt/module/spark/jars/* /spark-jars
  er</value>
 </property>
 ```
+
+### 使用 load 加载数据之后，原数据消失
+
+[【Hive】使用load导入文件数据却导致文件消失](https://blog.csdn.net/heiren_a/article/details/122456624)

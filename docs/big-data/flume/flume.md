@@ -346,11 +346,53 @@ a1.channels.c1.transactionCapacity = 100
 a1.sources.r1.channels = c1
 a1.sinks.k1.channel = c1
 ```
+
 :::warning
 在文件中追加信息使用如下的命令
+
 ```bash
 echo <追加内容> >> <文件名>
 ```
-而不要使用`vim`，vim的原理是将文件删除，再创建一个新的，所以文件的iNode值会改变，所以Flume将其认为是新文件。
+
+而不要使用`vim`，vim 的原理是将文件删除，再创建一个新的，所以文件的 iNode 值会改变，所以 Flume 将其认为是新文件。
 :::
 
+### 案例三：日志文件-->HDFS
+
+```properties
+a1.sources = r1
+a1.sinks = k1
+a1.channels = c1
+
+# Describe/configure the source
+a1.sources.r1.type = TAILDIR
+# 定义f1变量
+a1.sources.r1.filegroups = f1
+# 给f1变量赋值
+a1.sources.r1.filegroups.f1 = /opt/module/car-data/data/data.*
+# 偏移量文件（定位文件）
+a1.sources.r1.positionFile = /opt/module/flume/taildir-files/car_taildir_position.json
+
+# 配置 Channel
+a1.channels.c1.type = file
+a1.channels.c1.checkpointDir = /opt/module/flume/checkpoint/behavior1
+a1.channels.c1.dataDirs = /opt/module/flume/data/behavior1
+a1.channels.c1.maxFileSize = 2146435071
+a1.channels.c1.capacity = 1000000
+a1.channels.c1.keep-alive = 6
+
+# 配置 Sink (HDFS)
+a1.sinks.k1.type = hdfs
+a1.sinks.k1.hdfs.path = /origin_data/car_data_full/2024-08-25
+a1.sinks.k1.hdfs.filePrefix = log
+a1.sinks.k1.hdfs.round = false
+a1.sinks.k1.hdfs.rollInterval = 30
+a1.sinks.k1.hdfs.rollSize = 134217728
+a1.sinks.k1.hdfs.rollCount = 0
+a1.sinks.k1.hdfs.fileType = CompressedStream
+a1.sinks.k1.hdfs.codeC = gzip
+
+# Bind the source and sink to the channel
+a1.sources.r1.channels = c1
+a1.sinks.k1.channel = c1
+```
