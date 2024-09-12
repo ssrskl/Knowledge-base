@@ -126,3 +126,9 @@ sudo chronyc tracking
 ```bash
 sudo chronyc -n sources -v
 ```
+
+当配置完成后，可以查看当前的系统时间
+
+```bash
+date
+```

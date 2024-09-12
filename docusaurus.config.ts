@@ -168,6 +168,11 @@ const config: Config = {
             },
             {
               type: "docSidebar",
+              sidebarId: "KafkaSidebar",
+              label: "Kafka",
+            },
+            {
+              type: "docSidebar",
               sidebarId: "FlinkSidebar",
               label: "Flink",
             },

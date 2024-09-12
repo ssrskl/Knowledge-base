@@ -5,7 +5,6 @@ tags: [案例分析，vue]
 ---
 
 # 动态导航菜单
-
 实现效果如图：
 ![alt text](./imgs/dynamic-nav-menu.png)
 

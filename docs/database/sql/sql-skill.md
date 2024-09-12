@@ -107,8 +107,6 @@ on p1.id != p2.id and p1.Email = p2.Email
 
 [586. 订单最多的客户](https://leetcode.cn/problems/customer-placing-the-largest-number-of-orders/description/)
 
-
-
 ## 连续问题
 
 ### 连续出现的数字
@@ -157,3 +155,14 @@ where rk in(
 通过`id - row_number() over(order by id) as rk`来得到连续的数据，然后再分组，然后通过`having`来判断是否大于 3 即可。
 
 那么假设我们需要求取连续的日期，我们只需要在原始的表上添加一个自增的字段即可。
+
+## 行列转换
+
+### 列转行
+
+列转行：就是将列名作为数据存储在行中，列转行使用多个 select+union 来实现。
+
+例如：[1795. 每个产品在不同商店的价格](./exercises/rearrange-products-table)
+
+### 行转列
+

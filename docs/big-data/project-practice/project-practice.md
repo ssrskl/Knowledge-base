@@ -140,7 +140,17 @@ hadoop fs -rm -r "${targetdir}"
 hadoop fs -mkdir -p "${targetdir}"
 
 # 执行DataX任务
-/opt/module/datax/bin/datax.py /opt/module/datax/job/car_info.json -p"-Dtargetdir=${targetdir}"
+/opt/module/datax/bin/datax.py /opt/module/datax/job/import/car_data.car_info.json -p"-Dtargetdir=${targetdir}"
+/opt/module/datax/bin/datax.py /opt/module/datax/job/import/car_data.car_state.json -p"-Dtargetdir=${targetdir}"
+```
+
+手动执行的话可以如下：
+
+```bash
+hdfs dfs -rm -r /origin_data/car_info_full/2024-08-26
+hdfs dfs -mkdir -p /origin_data/car_info_full/2024-08-26
+/opt/module/datax/bin/datax.py /opt/module/datax/job/import/car_data.car_info.json -p"-Dtargetdir=/origin_data/car_info_full/2024-08-26"
+/opt/module/datax/bin/datax.py /opt/module/datax/job/import/car_data.car_state.json -p"-Dtargetdir=/origin_data/car_info_full/2024-08-26"
 ```
 
 赋予执行权限`chmod +x mysql-to-hdfs.sh`
@@ -1966,7 +1976,7 @@ dt  varchar(20) comment '统计日期',
  avg_mileage int comment '日均里程',
  avg_speed decimal(16,2) comment '平均时速分子',
  danger_count decimal(16,2) comment '平均百公里急加减速次数'
-) 
+)
 comment '里程相关统计';
 ```
 
@@ -1998,4 +2008,4 @@ python /opt/module/datax/bin/datax.py -p"-Dexportdir=/warehouse/car_data/ads/ads
 SELECT * FROM ads_mileage_stat_last_7d;
 ```
 
-## FineBI可视化
+## FineBI 可视化

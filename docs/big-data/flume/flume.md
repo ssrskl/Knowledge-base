@@ -222,6 +222,32 @@ a1.sources.r1.interceptors.i1.type = com.atguigu.gmall.flume.interceptor.Timesta
 
 ## Flume 案例
 
+### 启动参数解析
+
+使用如下命令可以查看 Flume 的启动参数
+
+```bash
+/opt/module/flume/bin/flume-ng agent --help
+```
+
+![alt text](./imgs/agent-options.png)
+
+需要注意的几点如下：
+
+1. 我们使用`agent`命令来启动 Flume，`agent`命令会启动一个 Flume Agent，并且启动一个 JVM 进程来运行这个 Agent。
+2. `--conf-file`：指定 Flume 的配置文件路径。
+3. `--name`：指定 Flume Agent 的名称。
+
+常见的命令格式：
+
+```bash
+/opt/module/flume/bin/flume-ng agent --conf-file /opt/module/flume/data/test/<配置文件名称>.conf --name a1
+```
+
+:::warning
+`--conf`：指定 Flume 的配置文件路径。但是这个命令是全局参数，所以在 agent 命令中无需使用！！！
+:::
+
 ### 案例一：端口-->控制台
 
 第一个案例的官方文档：[Flume 1.11.0 User Guide — Apache Flume](https://flume.apache.org/releases/content/1.11.0/FlumeUserGuide.html#starting-an-agent)
@@ -234,6 +260,12 @@ a1.sources.r1.interceptors.i1.type = com.atguigu.gmall.flume.interceptor.Timesta
 |port：44444||
 
 使用瑞士军刀(NetCat)创建一个聊天房间，并发送消息。
+
+安装 NetCat
+
+```bash
+yum install nc
+```
 
 创建房间
 
@@ -295,7 +327,7 @@ a1.sinks.k1.channel = c1
 启动 Flume
 
 ```bash
-/opt/module/flume/bin/flume-ng agent --conf conf --conf-file ./demo/v1/nc-flume-console.conf --name a1
+/opt/module/flume/bin/flume-ng agent --conf-file /opt/module/flume/data/test/test_nc_console.conf  --name a1
 ```
 
 :::tip
@@ -395,4 +427,233 @@ a1.sinks.k1.hdfs.codeC = gzip
 # Bind the source and sink to the channel
 a1.sources.r1.channels = c1
 a1.sinks.k1.channel = c1
+```
+
+### 案例四：端口-->Kafka
+
+```properties
+# 定义组件名称
+agent.sources = netcatSource
+agent.channels = kafkaChannel
+
+# 配置 Source （NetCat）
+agent.sources.netcatSource.type = netcat
+agent.sources.netcatSource.bind = localhost
+agent.sources.netcatSource.port = 44444
+
+# 配置 Channel （Kafka channel）
+agent.channels.kafkaChannel.type = org.apache.flume.channel.kafka.KafkaChannel
+agent.channels.kafkaChannel.kafka.bootstrap.servers = localhost:9092
+agent.channels.kafkaChannel.kafka.topic = car-data
+agent.channels.kafkaChannel.parseAsFlumeEvent = false
+
+# 组装
+agent.sources.netcatSource.channels = kafkaChannel
+```
+
+启动 Kafka 消费者
+
+```bash
+/opt/module/kafka/bin/kafka-console-consumer.sh  --bootstrap-server localhost:9092 --topic car-data
+```
+
+启动 Flume
+
+```bash
+/opt/module/flume/bin/flume-ng agent --name agent --conf-file /opt/module/flume/data/test/test_nc_kafka.conf
+```
+
+### 案例五：日志文件-->Kafka
+
+传递到 Kafka 中，我们可以使用`Kafka Channel`，从而可以省略 Sink 阶段，提高传输效率。
+
+```properties
+#定义组件
+a1.sources = r1
+a1.channels = c1
+
+# 配置 Source
+a1.sources.r1.type = TAILDIR
+# 定义f1变量
+a1.sources.r1.filegroups = f1
+# 给f1变量赋值
+a1.sources.r1.filegroups.f1 = /opt/module/car-data/data/data.*
+# 偏移量文件（定位文件）
+a1.sources.r1.positionFile = /opt/module/flume/taildir-files/car_taildir_position.json
+
+# 配置 Channel
+a1.channels.c1.type = org.apache.flume.channel.kafka.KafkaChannel
+a1.channels.c1.kafka.bootstrap.servers = localhost:9092
+a1.channels.c1.kafka.topic = car-data
+a1.channels.c1.parseAsFlumeEvent = false
+#组装
+a1.sources.r1.channels = c1
+```
+
+启动 Kafka 消费者
+
+```bash
+/opt/module/kafka/bin/kafka-console-consumer.sh  --bootstrap-server localhost:9092 --topic car-data
+```
+
+启动 Flume
+
+```bash
+/opt/module/flume/bin/flume-ng agent -n a1 -f /opt/module/flume/data/car/car_log_kafka.conf
+```
+
+### 案例六：Kafka-->控制台
+
+```properties
+a1.sources = r1
+a1.channels = c1
+
+# 配置 Source (Kafka)
+a1.sources.r1.type = org.apache.flume.source.kafka.KafkaSource
+a1.sources.r1.kafka.bootstrap.servers = localhost:9092
+a1.sources.r1.kafka.topic = car-data
+a1.sources.r1.kafka.auto.offset.reset = earliest
+
+# 配置 Channel
+a1.channels.c1.type = file
+a1.channels.c1.checkpointDir = /opt/module/flume/checkpoint/behavior1
+a1.channels.c1.dataDirs = /opt/module/flume/data/behavior1
+a1.channels.c1.maxFileSize = 2146435071
+a1.channels.c1.capacity = 1000000
+a1.channels.c1.keep-alive = 6
+
+# 配置 Sink (Logger)
+a1.sinks.k1.type = logger
+
+# 组装
+a1.sources.r1.channels = c1
+a1.sinks.k1.channel = c1
+```
+
+```bash
+/opt/module/flume/bin/flume-ng agent -n a1 -f /opt/module/flume/data/test/test_kafka_console.conf
+```
+
+### 归纳常用的配置
+
+#### Source
+
+**Netcat Source**
+
+```properties
+a1.sources = r1
+a1.sources.r1.type = netcat
+a1.sources.r1.bind = localhost
+a1.sources.r1.port = 44444
+```
+
+**Kafka Source**
+
+```properties
+a1.sources = r1
+a1.sources.r1.type = org.apache.flume.source.kafka.KafkaSource
+a1.sources.r1.kafka.bootstrap.servers = localhost:9092
+a1.sources.r1.kafka.topic = <topic>
+a1.sources.r1.kafka.auto.offset.reset = earliest
+```
+
+**TailDir Source**
+
+```properties
+a1.sources = r1
+a1.sources.r1.type = TAILDIR
+a1.sources.r1.filegroups = f1
+a1.sources.r1.filegroups.f1 = /opt/module/car-data/data/data.*
+a1.sources.r1.positionFile = /opt/module/flume/taildir_position.json
+```
+
+#### Channel
+
+**Memory Channel**
+
+```properties
+a1.channels = c1
+a1.channels.c1.type = memory
+a1.channels.c1.capacity = 1000000
+a1.channels.c1.transactionCapacity = 1000
+```
+
+**Kafka Channel**
+
+```properties
+a1.channels = c1
+a1.channels.c1.type = org.apache.flume.channel.kafka.KafkaChannel
+a1.channels.c1.kafka.bootstrap.servers = localhost:9092
+a1.channels.c1.kafka.topic = car-data
+a1.channels.c1.parseAsFlumeEvent = false
+```
+
+**File Channel**
+
+```properties
+a1.channels = c1
+a1.channels.c1.type = file
+a1.channels.c1.checkpointDir = /opt/module/flume/checkpoint/behavior1
+a1.channels.c1.dataDirs = /opt/module/flume/data/behavior1
+a1.channels.c1.maxFileSize = 2146435071
+a1.channels.c1.capacity = 1000000
+a1.channels.c1.keep-alive = 6
+```
+
+#### Sink
+
+**Logger Sink**
+
+```properties
+a1.sinks = k1
+a1.sinks.k1.type = logger
+```
+
+**HDFS Sink**
+
+```properties
+a1.sinks = k1
+a1.sinks.k1.type = hdfs
+a1.sinks.k1.hdfs.path = /origin_data/car_data_full/2024-08-25
+a1.sinks.k1.hdfs.filePrefix = log
+a1.sinks.k1.hdfs.round = false
+a1.sinks.k1.hdfs.rollInterval = 30
+a1.sinks.k1.hdfs.rollSize = 134217728
+a1.sinks.k1.hdfs.rollCount = 0
+a1.sinks.k1.hdfs.fileType = CompressedStream
+a1.sinks.k1.hdfs.codeC = gzip
+```
+
+## 脚本
+
+```bash
+#!/bin/bash
+
+if [ -z "$1" ]; then
+    echo "错误: 没有输入操作类型 (start/stop)"
+    echo "Usage: $0 {start|stop} <conf-file>"
+    exit 1
+fi
+
+if [ "$1" == "start" ] && [ -z "$2" ]; then
+    echo "错误: 启动时没有输入配置文件"
+    echo "Usage: $0 {start|stop} <conf-file>"
+    exit 1
+fi
+
+case $1 in
+    "start")
+        echo "启动 Flume..."
+        nohup /opt/module/flume/bin/flume-ng agent --conf-file $2 --name agent >/dev/null 2>&1 &
+        ;;
+    "stop")
+        echo "停止 Flume..."
+        ps -ef | grep flume | grep -v grep | awk '{print $2}' | xargs kill -9
+        ;;
+    *)
+        echo "错误: 无效的操作类型"
+        echo "Usage: $0 {start|stop} <conf-file>"
+        exit 1
+        ;;
+esac
 ```

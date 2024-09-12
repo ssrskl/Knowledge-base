@@ -226,3 +226,107 @@ UDF 于 UDAF 的区别
 
 - UDF 就类似于字符串更改等函数：属于单值函数
 - UDAF 就类似于 avg，groupby 等函数：属于聚合函数
+
+## 实战地区商品排名与分配比例
+
+![alt text](./imgs/sparksql-result.png)
+
+首先，前面的地区，商品名称以及点击数量很好实现，但是我们需要计算每个地区的点击比例，所以我们需要对点击数量进行聚合。
+
+```sql
+select c.area, p.product_name, count (*) as click_count, cityremark(c.city_name) as city_remark
+          from user_visit_action as a
+          join product_info as p on a.click_product_id = p.product_id
+          join city_info as c on a.city_id = c.city_id
+          where a.click_product_id != -1
+          group by c.area, p.product_id, p.product_name
+```
+
+使用自定义的`cityremark(c.city_name)`函数来计算每个地区的点击比例，已经使用了`where a.click_product_id != -1`过滤出了点击的商品。将每个被点击的商品的城市名称传入。
+
+```java
+public class CityRemarkUDAF extends Aggregator<String, CityRemarkBuffer, String> {
+    @Override
+    public CityRemarkBuffer zero() {
+        return new CityRemarkBuffer(0L, new HashMap<String, Long>());
+    }
+
+    @Override
+    public CityRemarkBuffer reduce(CityRemarkBuffer buffer, String city) {
+        buffer.setCount(buffer.getCount() + 1);
+        Map<String, Long> cityMap = buffer.getCityMap();
+        cityMap.merge(city, 1L, Long::sum);
+        buffer.setCityMap(cityMap);
+        return buffer;
+    }
+
+    // 分区合并
+    @Override
+    public CityRemarkBuffer merge(CityRemarkBuffer b1, CityRemarkBuffer b2) {
+        b1.setCount(b1.getCount() + b2.getCount());
+        Map<String, Long> cityMap1 = b1.getCityMap();
+        Map<String, Long> cityMap2 = b2.getCityMap();
+        cityMap2.forEach((k, v) -> cityMap1.merge(k, v, Long::sum));
+        b1.setCityMap(cityMap1);
+        return b1;
+    }
+
+    @Override
+    public String finish(CityRemarkBuffer buffer) {
+        StringBuilder resultString = new StringBuilder();
+        Long total = buffer.getCount();
+        Map<String, Long> cityMap = buffer.getCityMap();
+        ArrayList<CityCount> cityCounts = new ArrayList<CityCount>();
+        cityMap.forEach((k, v) -> cityCounts.add(new CityCount(k, v)));
+        Collections.sort(cityCounts);
+
+        CityCount cityCount0 = cityCounts.get(0);
+        resultString.append(cityCount0.getCityName()).append(" ").append(cityCount0.getCount() * 100 / total).append("%,");
+        CityCount cityCount1 = cityCounts.get(1);
+        resultString.append(cityCount1.getCityName()).append(" ").append(cityCount1.getCount() * 100 / total).append("%,");
+        if (cityCounts.size() > 2) {
+            resultString.append("其他").append(" ").append((total - cityCount0.getCount() - cityCount1.getCount()) * 100 / total).append("%");
+        }
+        return resultString.toString();
+    }
+
+    @Override
+    public Encoder<CityRemarkBuffer> bufferEncoder() {
+        return Encoders.bean(CityRemarkBuffer.class);
+    }
+
+    @Override
+    public Encoder<String> outputEncoder() {
+        return Encoders.STRING();
+    }
+}
+```
+
+```java
+@Data
+@Getter
+@Setter
+@AllArgsConstructor
+@NoArgsConstructor
+public class CityRemarkBuffer implements Serializable {
+    private Long count;
+    private Map<String, Long> cityMap;
+}
+```
+
+```java
+@Data
+@Setter
+@Getter
+@AllArgsConstructor
+@NoArgsConstructor
+public class CityCount implements Serializable, Comparable<CityCount> {
+    private String cityName;
+    private Long count;
+
+    @Override
+    public int compareTo(@NotNull CityCount other) {
+        return (int) (other.getCount() - this.getCount());
+    }
+}
+```
