@@ -165,4 +165,3 @@ where rk in(
 例如：[1795. 每个产品在不同商店的价格](./exercises/rearrange-products-table)
 
 ### 行转列
-

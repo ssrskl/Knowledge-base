@@ -6,6 +6,14 @@ tags: [大数据, Spark]
 
 ## ---概念篇---
 
+### DataFrame 与 DataSet
+
+DataFrame 是 SparkSQL 中的一种数据结构，它类似于关系型数据库中的表，但是它不仅仅局限于二维数据，还可以包含多种数据类型。
+
+DataSet 是 SparkSQL 中另一种数据结构，它类似于 DataFrame，但是它更加灵活，可以包含多种数据类型。
+
+所有 DataFrame 与 DataSet 基本相同，但是 DataSet 支持泛型特性，所以 Java 与 Scala 中使用较多。而 Python 没有泛型特性，所以 PySpark 中使用 DataFrame 较多。
+
 ## ---实操篇---
 
 ## 环境安装
@@ -51,6 +59,20 @@ SparkSession sparkSession = SparkSession.builder()
 sparkSession.close();
 ```
 
+**Python 版本**
+
+```python
+import os
+from pyspark.sql import SparkSession
+
+os.environ["PYSPARK_PYTHON"] = "E:\Chris\Anaconda3\envs\pyspark\python.exe"
+spark = SparkSession.builder.appName("SparkSQLEnv").getOrCreate()
+sc = spark.sparkContext
+sc.setLogLevel("WARN")
+
+spark.stop()
+```
+
 ## 数据源
 
 Spark SQL 支持从多种数据源读取数据，包括 CSV、Hive、Parquet、JSON、JDBC 等。
@@ -88,6 +110,93 @@ ds.createOrReplaceTempView("user");
 String sql = "select * from user";
 Dataset<Row> sqlResult = sparkSession.sql(sql);
 sqlResult.show();
+```
+
+### PySpark 构建 DataFrame
+
+构建 DataFrame 之前，我们需要知道 DataFrame 类似数据库中的一张表，所以 DataFrame 有表结构，那么我们有两种方式去构建 DataFrame 的表结构，**自动推断和手动定义**。
+构建 DataFrame 有多种方式，主要有四类：
+
+1. RDD->DataFrame
+2. 集合->DataFrame
+3. 文件->DataFrame
+4. 外部数据源->DataFrame
+
+#### RDD->DataFrame
+
+自动推断 Scheme
+
+```python
+rdd = sc.parallelize(
+    [(1, "猫颜", 18), (2, "恩兰", 20), (3, "淑琦", 19), (4, "易权", 21)]
+)
+df = rdd.toDF(["id", "name", "age"])
+df.printSchema()
+df.show()
+```
+
+指定 Schema
+
+```python
+schema = (
+    StructType()
+    .add("id", IntegerType())
+    .add("name", StringType())
+    .add("age", IntegerType())
+)
+
+rdd = sc.parallelize(
+    [(1, "猫颜", 18), (2, "恩兰", 20), (3, "淑琦", 19), (4, "易权", 21)]
+)
+df = spark.createDataFrame(rdd, schema)
+df.printSchema()
+df.show()
+```
+
+#### 集合->DataFrame
+
+对比于上面的 RDD->DataFrame，集合->DataFrame 更加简单，只需要将集合传入即可。
+
+```python
+schema = (
+    StructType()
+    .add("id", IntegerType())
+    .add("name", StringType())
+    .add("age", IntegerType())
+)
+
+user_info = [
+    (1, "猫颜", 18),
+    (2, "恩兰", 20),
+    (3, "淑琦", 19),
+    (4, "易权", 21),
+]
+df = spark.createDataFrame(user_info, schema)
+df.printSchema()
+df.show()
+```
+
+#### 文件->DataFrame
+
+主要需要指定文件的格式，比如 csv、json、parquet 等，以及文件的分隔符，是否需要表头，内容编码等。
+
+```python
+ratings_schema = (
+    StructType()
+    .add("userId", IntegerType())
+    .add("movieId", IntegerType())
+    .add("rating", IntegerType())
+    .add("timestamp", IntegerType())
+)
+(
+    spark.read.format("csv")
+    .option("sep", "::")
+    .option("header", "False")
+    .option("encoding", "UTF-8")
+    .schema(movies_schema)
+    .load("data/ml-1m/movies.dat")
+    .createOrReplaceTempView("t_movies")
+)
 ```
 
 #### SparkSQL 连接 Hive

@@ -25,8 +25,47 @@ tags:
    ![alt text](./imgs/sql-sequence.png)
 
 :::warning 注意
-在SQL中，窗口函数都是最后执行的，而且仅仅位于`order by`之前。
+在 SQL 中，窗口函数都是最后执行的，而且仅仅位于`order by`之前。
 :::
+
+## Group by
+
+Group by 是 SQL 中用于对数据进行分组的函数。
+
+:::warning 注意
+在 select 中如果包含聚合函数，那么对于 selec 中的查询字段有要求：
+
+1. 常量
+2. 查询字段要在聚合函数内使用：相当于对这个字段进行了聚合
+3. 查询字段必须参与 group by 分组：使用这个字段进行分组，也相当于对这个字段进行了聚合
+
+:::
+
+例如：
+
+```sql
+select name, count(id) from students group by name;
+```
+
+**分组字段的关系：**
+
+1. 如果分组字段存在上下级关系或者从属关系，那么统计结果和下级有关，和上级无关，分组时增加上级的字段是为了补全数据。
+
+   **例如：** city 是 province 的下级，那么统计结果和 city 有关，和 province 无关，分组时增加 province 的字段是为了补全数据。
+
+```sql
+select province, city, count(id) from students group by province, city;
+```
+
+2. 如果分组字段存在关联关系（商品 ID，商品名称），那么统计结果只和具备唯一性的字段有关，其他字段是为了补全数据。
+
+   **例如：** 商品 ID 是商品名称的唯一标识，那么统计结果只和商品 ID 有关，和商品名称无关，分组时增加商品名称的字段是为了补全数据。
+
+```sql
+select id, name, count(id) from students group by id, name;
+```
+
+3. 如果分组的字段没有任何关系，那么统计结果和分组字段都有关。
 
 ## 窗口函数
 

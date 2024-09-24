@@ -313,6 +313,81 @@ load data inpath '/user/hive/warehouse/student' into table student;
 
 ## 拉链表
 
+创建拉链表
+
+```sql
+-- 拉链表
+create table dw_zipper(
+	user_id string,
+	phone string,
+	nick string,
+	starttime string,
+	endtime string
+)
+comment '拉链表'
+row format delimited fields terminated by '\t';
+```
+
+插入数据，这里推荐使用`load`命令，将数据导入到拉链表中。
+
+```sql
+insert into dw_zipper
+values(1,'17104344673','猫颜','2024-09-12','9999-12-31');
+insert into dw_zipper
+values(2,'13526021683','流苏','2024-09-12','9999-12-31');
+insert into dw_zipper
+values(3,'13526021684','陈寅','2024-09-12','9999-12-31');
+insert into dw_zipper
+values(4,'13526021685','靖雅','2024-09-12','9999-12-31');
+insert into dw_zipper
+values(5,'13526021686','源姣','2024-09-12','9999-12-31');
+insert into dw_zipper
+values(6,'13526021687','文岚','2024-09-12','9999-12-31');
+
+select * FROM  dw_zipper;
+```
+
+创建 ODS 表，即每日更新的最新数据，这里有一个更新以及两个新增，更新的数据需要进行判断，而新增的数据之间合并即可。
+
+```sql
+-- ODS增量表采集最新数据（一个更新，两个新增）
+create table ods_zipper_update(
+	user_id string,
+	phone string,
+	nick string,
+	starttime string,
+	endtime string
+)comment 'ods增量表'
+row format delimited fields terminated by '\t';
+
+insert into ods_zipper_update
+values(1,'110','猫颜','2024-09-13','9999-12-31');
+insert into ods_zipper_update
+values(2,'119','霞晶','2024-09-13','9999-12-31');
+insert into ods_zipper_update
+values(3,'120','路莹','2024-09-13','9999-12-31');
+
+SELECT * FROM ods_zipper_update;
+```
+
+1. 将 ODS 的增量表数据合并到拉链表中
+2. 拉链表 join 一下增量表从而知道哪些数据发生了变化
+3. 更新拉链表中的数据
+
+```sql
+-- 将ODS的增量表数据合并到拉链表中
+insert overwrite table dw_zipper
+SELECT * FROM ods_zipper_update as u
+union all
+select
+	a.user_id,
+	a.phone,
+	a.nick,
+	a.starttime,
+	if(u.endtime = '9999-12-31', u.starttime,'9999-12-31') as endtime
+from dw_zipper as a left join ods_zipper_update as u on a.nick = u.nick
+```
+
 ## Hive 函数
 
 ### 自定义函数

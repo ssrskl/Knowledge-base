@@ -61,6 +61,7 @@ DAG 任务调度图是 Spark 任务调度的基础，它描述了任务的依赖
 
 ## 开发环境
 
+**Java 版本**
 首先添加 Maven 依赖
 
 ```xml
@@ -86,6 +87,25 @@ public class Spark01_env {
         jsc.close();
     }
 }
+```
+
+**Python 版本**
+
+```python
+# Spark的环境
+
+import os
+from pyspark import SparkConf, SparkContext
+
+os.environ["PYSPARK_PYTHON"] = "E:\Chris\Anaconda3\envs\pyspark\python.exe"
+conf = SparkConf().setAppName("SparkEnv").setMaster("local[*]")
+spark = SparkContext(conf=conf)
+spark.setLogLevel("WARN")
+
+rdd = spark.parallelize([1, 2, 3, 4, 5, 6, 7, 8, 9])
+print(rdd.collect())
+
+spark.stop()
 ```
 
 ## 数据加载
@@ -189,6 +209,10 @@ rdd.collect().forEach(System.out::println);
 
 数据分组，传入的参数为分组逻辑，即数据的分组方法，返回的是每个数据的所在组的名称。
 
+:::success
+groupBy() 的分组核心就是在括号中传入的分组逻辑，即当前的数据的组名是什么，那么就会按照这个组名进行分组。
+:::
+
 _按照奇偶分组：_
 
 ```java
@@ -203,6 +227,16 @@ JavaPairRDD<Object, Iterable<Integer>> rdd = jsc.parallelize(Arrays.asList(1, 2,
             }
         });
 rdd.collect().forEach(System.out::println);
+```
+
+**python 版本**
+
+```python
+rdd = spark.parallelize([1, 2, 3, 4, 5, 6, 7, 8, 9])
+result = rdd.groupBy(lambda x: "偶数" if x % 2 == 0 else "奇数").collect()
+
+for key, group in result:
+    print(f"Key: {key}, Group: {list(group)}")
 ```
 
 #### sortBy
@@ -232,6 +266,33 @@ rdd.collect().forEach(System.out::println);
 ```
 
 ### 行动算子
+
+#### collect
+
+#### reduce
+
+对 RDD 的数据集按照指定的规则进行聚合，聚合的方式是两两聚合，传入的参数为聚合的规则，例如对数字进行相加，对对象进行拼接等。
+
+```java
+Integer sum = jsc.parallelize(Arrays.asList(1, 2, 3, 4, 5)).reduce((a, b) -> a + b);
+System.out.println(sum);
+```
+
+```python
+rdd = spark.parallelize([1, 2, 3, 4, 5, 6, 7, 8, 9])
+print(rdd.reduce(lambda a, b: a + b))
+```
+
+#### fold
+
+功能与 reduce 类似，但是 fold 可以指定初始值，reduce 没有初始值。初始值就是在分区间聚合的时候先在每个分区内部进行聚合，然后再进行分区间聚合。例如：有三个分区，数据为[1,2,3]，[4,5,6]，[7,8,9]，初始值为 0，那么先在每个分区内部进行聚合，得到 6，15，24，然后再进行分区间聚合，得到 45。
+
+```python
+# 划分为3个分区
+rdd = spark.parallelize([1, 2, 3, 4, 5, 6, 7, 8, 9], 3)
+print(rdd.glom().collect())  # 查看每个分区的数据
+print(rdd.fold(0, lambda a, b: a + b))  # 分区间进行累加
+```
 
 ## KV 数据类型
 
@@ -409,6 +470,8 @@ jsc.close();
 
 ## 累加器与广播变量的使用场景
 
+## ---实战篇---
+
 ## TopN 实战
 
 ### 源码展示
@@ -492,6 +555,169 @@ class HotCatgory implements Serializable ,Comparable<HotCatgory>{
         return 0;
     }
 }
+```
+
+## 搜索引擎的日志分析
+
+![alt text](./imgs/data-source.png)
+
+数据源：
+
+```txt
+00:00:00	2982199073774412	传智播客	8	3	http://www.itcast.cn
+00:00:00	07594220010824798	黑马程序员	1	1	http://www.itcast.cn
+00:00:00	5228056822071097	传智播客	14	5	http://www.itcast.cn
+00:00:00	6140463203615646	博学谷	62	36	http://www.itcast.cn
+00:00:00	8561366108033201	IDEA	3	2	http://www.itcast.cn
+00:00:00	23908140386148713	传智专修学院	1	2	http://www.itcast.cn
+23:00:00	1797943298449139	flume	8	5	http://www.itcast.cn
+23:00:00	00717725924582846	itcast	1	2	http://www.itcast.cn
+23:00:00	41416219018952116	bigdata	2	6	http://www.itcast.cn
+23:00:00	9975666857142764	IDEA	2	2	http://www.itcast.cn
+...
+```
+
+有三个指标
+
+1. 搜索关键词的统计
+2. 用户和关键词组合分析
+3. 搜索时间段的统计
+
+### 需求一：搜索关键词的统计
+
+关键词统计可以使用`jieba`进行分词，然后进行统计。
+
+```python
+# RDD的练习3-搜索引擎的日志分析
+"""
+需求：
+搜索关键词统计
+"""
+
+import json
+import os
+import jieba
+from pyspark import SparkConf, SparkContext
+
+
+def filter_keyword(keyword):
+    return keyword not in ["谷", "帮", "客"]
+
+
+def replace_keyword(keyword):
+    return (
+        keyword.replace("传智播", "传智播客")
+        .replace("院校", "院校帮")
+        .replace("博学", "博学谷")
+    )
+
+
+os.environ["PYSPARK_PYTHON"] = "E:\Chris\Anaconda3\envs\pyspark\python.exe"
+conf = SparkConf().setAppName("RDDPractice").setMaster("local[*]")
+spark = SparkContext(conf=conf)
+spark.setLogLevel("WARN")
+
+file_rdd = spark.textFile("data/SogouQ.txt")
+split_rdd = file_rdd.map(lambda line: line.split("\t"))
+statement_rdd = split_rdd.map(lambda x: x[2])
+keyword_rdd = statement_rdd.flatMap(lambda x: jieba.cut_for_search(x))
+# 数据过滤与关键词替换
+keyword_rdd = keyword_rdd.filter(filter_keyword).map(replace_keyword)
+result = (
+    keyword_rdd.map(lambda x: (x, 1))
+    .reduceByKey(lambda a, b: a + b)
+    .sortBy(
+        lambda x: x[1], ascending=False, numPartitions=1
+    )  # 设置numPartitions=1使得结果为单个分区，全局有序
+).take(10)
+
+print(result)
+spark.stop()
+```
+
+### 需求二：用户和关键词组合分析
+
+分析用户的喜好，可以统计用户搜索的关键词，然后进行统计。
+
+```python
+# RDD的练习3-搜索引擎的日志分析
+"""
+需求：
+用户和关键词组合分析
+"""
+import os
+import jieba
+from pyspark import SparkConf, SparkContext
+
+
+def replace_keyword(keyword):
+    return (
+        keyword.replace("传智播", "传智播客")
+        .replace("院校", "院校帮")
+        .replace("博学", "博学谷")
+    )
+
+
+def extract_user_keyword(data):
+    user = data[0]
+    content = data[1]
+    words = jieba.cut_for_search(content)
+    result_list = []
+    for word in words:
+        if word not in ["谷", "帮", "客"]:
+            word = replace_keyword(word)
+            result_list.append((user + "-" + word, 1))
+    return result_list
+
+
+os.environ["PYSPARK_PYTHON"] = "E:\Chris\Anaconda3\envs\pyspark\python.exe"
+conf = SparkConf().setAppName("RDDPractice").setMaster("local[*]")
+spark = SparkContext(conf=conf)
+spark.setLogLevel("WARN")
+
+file_rdd = spark.textFile("data/SogouQ.txt")
+split_rdd = file_rdd.map(lambda line: line.split("\t"))
+data_rdd = split_rdd.map(lambda x: (x[1], x[2]))
+result = (
+    data_rdd.flatMap(extract_user_keyword)
+    .reduceByKey(lambda a, b: a + b)
+    .sortBy(lambda x: x[1], ascending=False, numPartitions=1)
+).take(10)
+
+print(result)
+
+spark.stop()
+```
+
+### 需求三：搜索时间段的统计
+
+```python
+# RDD的练习3-搜索引擎的日志分析
+"""
+需求：
+搜索时间段的统计:(时间,时间段总搜索次数)
+"""
+import os
+import jieba
+from pyspark import SparkConf, SparkContext
+
+os.environ["PYSPARK_PYTHON"] = "E:\Chris\Anaconda3\envs\pyspark\python.exe"
+conf = SparkConf().setAppName("RDDPractice").setMaster("local[*]")
+spark = SparkContext(conf=conf)
+spark.setLogLevel("WARN")
+
+file_rdd = spark.textFile("data/SogouQ.txt")
+split_rdd = file_rdd.map(lambda line: line.split("\t"))
+data_rdd = split_rdd.map(lambda x: (x[0].split(":")[0], 1))
+result = (
+    (data_rdd.reduceByKey(lambda a, b: a + b))
+    .sortBy(lambda x: x[1], ascending=False)
+    .take(10)
+)
+
+print(result)
+
+spark.stop()
 ```
 
 ## ---总结篇---
